@@ -5,7 +5,7 @@ from utils.ui_utils import show_header, show_success_message, show_error_message
 from utils.ui_utils import check_authentication
 from utils.db_utils import get_shopping_list, get_shopping_list_items, add_item_to_shopping_list
 from utils.db_utils import update_shopping_list_item, get_stores, get_categories
-from utils.db_utils import create_item, search_items
+from utils.db_utils import create_item, search_items, get_items_by_user
 
 # 認証チェック
 if not check_authentication():
@@ -42,6 +42,29 @@ show_header(f"{shopping_list.name} の編集")
 if 'search_query' not in st.session_state:
     st.session_state['search_query'] = ""
 
+# 選択した既存アイテムのIDをセッションに保存
+if 'selected_existing_item_id' not in st.session_state:
+    st.session_state['selected_existing_item_id'] = None
+
+# 前回選択したアイテムのカテゴリ情報を保持
+if 'selected_item_category_id' not in st.session_state:
+    st.session_state['selected_item_category_id'] = None
+
+# カテゴリを自動設定する関数
+def update_category_from_item(item_id):
+    if not item_id:
+        return
+    
+    # ユーザーのアイテム一覧を取得
+    items = get_items_by_user(st.session_state.get('user_id'))
+    
+    # 選択したアイテムを探す
+    selected_item = next((item for item in items if item.id == item_id), None)
+    
+    # 次回のレンダリングサイクルのためにカテゴリIDを保存
+    if selected_item and selected_item.category_id:
+        st.session_state.selected_item_category_id = str(selected_item.category_id)
+
 # サイドバー
 with st.sidebar:
     st.header("メニュー")
@@ -62,21 +85,80 @@ st.subheader("商品の追加")
 
 # 商品追加フォーム
 with st.form("add_item_form"):
+    # 商品追加方法の選択
+    input_method = st.radio("商品の追加方法", ["既存の商品から選択", "新しい商品を入力"], horizontal=True)
+    
     col1, col2 = st.columns(2)
     
     with col1:
-        # 商品名入力
-        item_name = st.text_input("商品名", placeholder="りんご、牛乳など")
+        if input_method == "既存の商品から選択":
+            # 既存の商品から選択する
+            # カテゴリによるフィルタリング
+            categories = get_categories(user_id=st.session_state.get('user_id'))
+            category_options = ["すべてのカテゴリ"] + [c.name for c in categories]
+            selected_category = st.selectbox("カテゴリで絞り込み", category_options, key="filter_category_select")
+            
+            # 商品データを取得してフィルタリング
+            items = get_items_by_user(st.session_state.get('user_id'))
+            filtered_items = items
+            
+            if selected_category != "すべてのカテゴリ":
+                filtered_items = [item for item in items if item.category and item.category.name == selected_category]
+            
+            if filtered_items:
+                # 商品を選択するセレクトボックスの選択肢を生成
+                item_options = []
+                for item in filtered_items:
+                    category_name = item.category.name if item.category else "未分類"
+                    item_options.append((str(item.id), f"{item.name} ({category_name})"))
+                
+                # 商品選択
+                selected_item_id = st.selectbox(
+                    "商品を選択", 
+                    options=[id for id, _ in item_options],
+                    format_func=lambda x: dict(item_options).get(x, ""),
+                    key="select_existing_item"
+                )
+                
+                if selected_item_id:
+                    # 選択されたアイテム情報を表示
+                    selected_item = next((item for item in filtered_items if str(item.id) == selected_item_id), None)
+                    if selected_item:
+                        category_name = selected_item.category.name if selected_item.category else "未分類"
+                        st.write(f"**カテゴリ:** {category_name}")
+                        
+                        # フォーム送信時に選択された商品のカテゴリを設定
+                        update_category_from_item(int(selected_item_id))
+            else:
+                st.info("選択したカテゴリに商品がありません")
+                selected_item_id = None
+        
+        # 新しい商品名入力（既存の商品がない場合、または新しい商品を入力する場合）
+        if input_method == "新しい商品を入力":
+            item_name = st.text_input("商品名", placeholder="りんご、牛乳など")
+            selected_item_id = None
+        else:
+            # 既存の商品を選択する場合の初期化
+            item_name = ""
         
         # カテゴリ選択
         categories = get_categories(user_id=st.session_state.get('user_id'))
         category_options = [("", "カテゴリを選択")] + [(str(c.id), c.name) for c in categories]
+        
+        # 選択されたアイテムからカテゴリを自動設定する（次のレンダリングサイクル用）
+        default_category = st.session_state.get('selected_item_category_id', "")
+        
         category_id = st.selectbox(
             "カテゴリ",
             options=[id for id, _ in category_options],
             format_func=lambda x: dict(category_options).get(x, "カテゴリを選択"),
-            key="category_select"
+            key="category_select",
+            index=next((i for i, (id, _) in enumerate(category_options) if id == default_category), 0)
         )
+        
+        # 使用後にクリア
+        if st.session_state.get('selected_item_category_id'):
+            st.session_state.selected_item_category_id = None
         
     with col2:
         # 予定金額
@@ -96,29 +178,39 @@ with st.form("add_item_form"):
     submit_button = st.form_submit_button("リストに追加")
     
     if submit_button:
-        if not item_name:
+        if not item_name and input_method == "新しい商品を入力":
             show_error_message("商品名を入力してください")
+        elif not selected_item_id and input_method == "既存の商品から選択":
+            show_error_message("商品を選択してください")
         else:
-            # 既存アイテムの検索または新規作成
-            items = search_items(st.session_state.get('user_id'), item_name)
-            
             item_id = None
-            if items:
-                # 一致するアイテムが見つかった場合は最初のものを使用
-                item_id = items[0].id
+            
+            if input_method == "既存の商品から選択" and selected_item_id:
+                # 既存商品を使用
+                item_id = int(selected_item_id)
+                
+                # フォーム送信時に選択された商品のカテゴリを設定
+                update_category_from_item(item_id)
             else:
-                # 新しいアイテムを作成
-                new_item = create_item(
-                    name=item_name,
-                    user_id=st.session_state.get('user_id'),
-                    category_id=int(category_id) if category_id else None,
-                    default_price=planned_price if planned_price > 0 else None
-                )
-                if new_item:
-                    item_id = new_item.id
+                # 既存アイテムの検索または新規作成
+                items = search_items(st.session_state.get('user_id'), item_name)
+                
+                if items:
+                    # 一致するアイテムが見つかった場合は最初のものを使用
+                    item_id = items[0].id
                 else:
-                    show_error_message("アイテムの作成に失敗しました")
-                    st.stop()
+                    # 新しいアイテムを作成
+                    new_item = create_item(
+                        name=item_name,
+                        user_id=st.session_state.get('user_id'),
+                        category_id=int(category_id) if category_id else None,
+                        default_price=planned_price if planned_price > 0 else None
+                    )
+                    if new_item:
+                        item_id = new_item.id
+                    else:
+                        show_error_message("アイテムの作成に失敗しました")
+                        st.stop()
             
             # リストにアイテムを追加
             list_item = add_item_to_shopping_list(
@@ -175,35 +267,57 @@ if items:
         total = df["合計"].sum()
         st.caption(f"合計予定金額: ¥{total:,.0f}")
         
-        # DataFrameの表示
-        edited_df = st.data_editor(
-            df,
-            column_config={
-                "ID": st.column_config.NumberColumn("ID", required=True),
-                "商品名": st.column_config.TextColumn("商品名"),
-                "カテゴリ": st.column_config.TextColumn("カテゴリ"),
-                "店舗": st.column_config.TextColumn("店舗"),
-                "予定金額": st.column_config.NumberColumn("予定金額", format="¥%d"),
-                "数量": st.column_config.NumberColumn("数量", min_value=1, step=1),
-                "合計": st.column_config.NumberColumn("合計", format="¥%d"),
-                "購入済": st.column_config.CheckboxColumn("購入済")
-            },
-            hide_index=True,
-            use_container_width=True,
-            key="all_items",
-            disabled=["ID", "商品名", "カテゴリ", "店舗", "合計"]  # 編集できない列
+        # カテゴリでフィルタリング機能を追加
+        categories_in_list = sorted(df["カテゴリ"].unique().tolist())
+        filter_category = st.selectbox(
+            "カテゴリで絞り込み", 
+            ["すべてのカテゴリ"] + categories_in_list,
+            key="filter_category_list"
         )
         
-        # 編集内容を反映
-        for i, row in edited_df.iterrows():
-            original_row = df.iloc[i]
-            if (row["数量"] != original_row["数量"] or 
-                row["購入済"] != original_row["購入済"]):
-                update_shopping_list_item(
-                    item_id=row["ID"],
-                    quantity=row["数量"],
-                    checked=row["購入済"]
-                )
+        # フィルタリングされたデータフレームを作成
+        filtered_df = df.copy()  # ここでコピーを作成
+        if filter_category != "すべてのカテゴリ":
+            filtered_df = filtered_df[filtered_df["カテゴリ"] == filter_category]
+            # フィルタリング後の小計を再計算
+            filtered_total = filtered_df["合計"].sum()
+            st.caption(f"{filter_category} 合計予定金額: ¥{filtered_total:,.0f}")
+        
+        # DataFrameの表示
+        if not filtered_df.empty:
+            edited_df = st.data_editor(
+                filtered_df,
+                column_config={
+                    "ID": st.column_config.NumberColumn("ID", required=True),
+                    "商品名": st.column_config.TextColumn("商品名"),
+                    "カテゴリ": st.column_config.TextColumn("カテゴリ"),
+                    "店舗": st.column_config.TextColumn("店舗"),
+                    "予定金額": st.column_config.NumberColumn("予定金額", format="¥%d"),
+                    "数量": st.column_config.NumberColumn("数量", min_value=1, step=1),
+                    "合計": st.column_config.NumberColumn("合計", format="¥%d"),
+                    "購入済": st.column_config.CheckboxColumn("購入済")
+                },
+                hide_index=True,
+                use_container_width=True,
+                key="all_items",
+                disabled=["ID", "商品名", "カテゴリ", "店舗", "合計"]  # 編集できない列
+            )
+            
+            # 編集内容を反映
+            for i, row in edited_df.iterrows():
+                # オリジナルのデータフレームから該当するIDの行を特定
+                original_rows = df[df["ID"] == row["ID"]]
+                if not original_rows.empty:
+                    original_row = original_rows.iloc[0]
+                    if (row["数量"] != original_row["数量"] or 
+                        row["購入済"] != original_row["購入済"]):
+                        update_shopping_list_item(
+                            item_id=row["ID"],
+                            quantity=row["数量"],
+                            checked=row["購入済"]
+                        )
+        else:
+            st.info(f"このカテゴリ（{filter_category}）に該当する商品はありません")
     
     # 店舗別タブ
     for i, store_name in enumerate(stores_in_list):

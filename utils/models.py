@@ -48,6 +48,9 @@ class Category(Base):
     # リレーションシップ
     user = relationship("User", back_populates="categories")
     items = relationship("Item", back_populates="category")
+    
+    def __str__(self):
+        return self.name
 
 class Item(Base):
     """商品アイテムモデル"""

@@ -291,10 +291,11 @@ def create_store(name: str, category: Optional[str] = None, user_id: Optional[in
 
 # アイテム関連の関数
 def get_items_by_user(user_id: int, category_id: Optional[int] = None) -> List[Item]:
-    """ユーザーの品目一覧を取得"""
+    """ユーザーの品目一覧を取得（ユーザー固有 + デフォルト）"""
     session = get_db_session()
     try:
-        query = session.query(Item).filter(Item.user_id == user_id)
+        # ユーザー固有 + ユーザーに紐づかないデフォルトアイテム
+        query = session.query(Item).filter((Item.user_id == user_id) | (Item.user_id.is_(None)))
         if category_id:
             query = query.filter(Item.category_id == category_id)
         return query.all()

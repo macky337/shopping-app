@@ -376,6 +376,29 @@ def get_shopping_list(list_id: int) -> Optional[ShoppingList]:
         logger.error(f"買い物リスト取得エラー: {e}")
         return None
 
+def update_shopping_list(list_id: int, name: Optional[str] = None, memo: Optional[str] = None, date: Optional[datetime.date] = None) -> Optional[ShoppingList]:
+    """買い物リストを更新"""
+    session = get_db_session()
+    try:
+        shopping_list = session.query(ShoppingList).filter(ShoppingList.id == list_id).first()
+        if not shopping_list:
+            return None
+            
+        if name is not None:
+            shopping_list.name = name
+        if memo is not None:
+            shopping_list.memo = memo
+        if date is not None:
+            shopping_list.date = date
+            
+        session.commit()
+        session.refresh(shopping_list)
+        return shopping_list
+    except Exception as e:
+        logger.error(f"買い物リスト更新エラー: {e}")
+        session.rollback()
+        return None
+
 # 買い物リストアイテム関連の関数
 def add_item_to_shopping_list(
     shopping_list_id: int, 
@@ -440,31 +463,64 @@ def update_shopping_list_item(
     item_id: int,
     checked: Optional[bool] = None,
     quantity: Optional[int] = None,
+    store_id: Optional[int] = None,
     planned_price: Optional[float] = None
 ) -> Optional[ShoppingListItem]:
-    """買い物リストアイテムを更新"""
+    """買い物リストアイテムを更新（チェック状態、数量、店舗、価格）"""
     session = get_db_session()
     try:
-        item = session.query(ShoppingListItem).filter(ShoppingListItem.id == item_id).first()
-        if not item:
+        list_item = session.query(ShoppingListItem).filter(ShoppingListItem.id == item_id).first()
+        if not list_item:
             return None
             
         if checked is not None:
-            item.checked = checked
-        
+            list_item.checked = checked
         if quantity is not None:
-            item.quantity = quantity
-            
+            list_item.quantity = quantity
+        if store_id is not None:
+            list_item.store_id = store_id
         if planned_price is not None:
-            item.planned_price = planned_price
+            list_item.planned_price = planned_price
             
         session.commit()
-        session.refresh(item)
-        return item
+        session.refresh(list_item)
+        return list_item
     except Exception as e:
         logger.error(f"買い物リストアイテム更新エラー: {e}")
         session.rollback()
         return None
+
+def delete_shopping_list_item(item_id: int) -> bool:
+    """買い物リストからアイテムを削除"""
+    session = get_db_session()
+    try:
+        list_item = session.query(ShoppingListItem).filter(ShoppingListItem.id == item_id).first()
+        if not list_item:
+            return False
+            
+        session.delete(list_item)
+        session.commit()
+        return True
+    except Exception as e:
+        logger.error(f"買い物リストアイテム削除エラー: {e}")
+        session.rollback()
+        return False
+
+def remove_item_from_shopping_list(item_id: int) -> bool:
+    """買い物リストからアイテムを削除"""
+    session = get_db_session()
+    try:
+        item = session.query(ShoppingListItem).filter(ShoppingListItem.id == item_id).first()
+        if not item:
+            return False
+            
+        session.delete(item)
+        session.commit()
+        return True
+    except Exception as e:
+        logger.error(f"買い物リストアイテム削除エラー: {e}")
+        session.rollback()
+        return False
 
 # 購入履歴関連の関数
 def record_purchase(

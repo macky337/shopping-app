@@ -5,7 +5,8 @@ from utils.ui_utils import show_header, show_success_message, show_error_message
 from utils.ui_utils import check_authentication
 from utils.db_utils import get_shopping_list, get_shopping_list_items, add_item_to_shopping_list
 from utils.db_utils import update_shopping_list_item, get_stores, get_categories
-from utils.db_utils import create_item, search_items, get_items_by_user
+from utils.db_utils import create_item, search_items, get_items_by_user, update_shopping_list
+from utils.db_utils import remove_item_from_shopping_list
 
 # 認証チェック
 if not check_authentication():
@@ -38,6 +39,33 @@ if shopping_list is None:
 # ヘッダー表示
 show_header(f"{shopping_list.name} の編集")
 
+# リスト情報の編集機能
+with st.expander("リスト情報を編集", expanded=False):
+    with st.form("edit_list_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            new_name = st.text_input("リスト名", value=shopping_list.name)
+        
+        with col2:
+            new_date = st.date_input("日付", value=shopping_list.date)
+            
+        new_memo = st.text_area("メモ", value=shopping_list.memo if shopping_list.memo else "")
+        
+        if st.form_submit_button("リスト情報を更新"):
+            updated_list = update_shopping_list(
+                list_id=shopping_list.id,
+                name=new_name,
+                memo=new_memo if new_memo else None,
+                date=new_date
+            )
+            
+            if updated_list:
+                show_success_message("リスト情報を更新しました")
+                st.rerun()
+            else:
+                show_error_message("リスト情報の更新に失敗しました")
+
 # セッション状態の初期化
 if 'search_query' not in st.session_state:
     st.session_state['search_query'] = ""
@@ -49,6 +77,10 @@ if 'selected_existing_item_id' not in st.session_state:
 # 前回選択したアイテムのカテゴリ情報を保持
 if 'selected_item_category_id' not in st.session_state:
     st.session_state['selected_item_category_id'] = None
+
+# 編集対象のアイテムIDをセッションに保存
+if 'editing_item_id' not in st.session_state:
+    st.session_state['editing_item_id'] = None
 
 # カテゴリを自動設定する関数
 def update_category_from_item(item_id):
@@ -221,10 +253,98 @@ with st.form("add_item_form"):
             )
             
             if list_item:
-                show_success_message(f"{item_name}をリストに追加しました")
-                st.rerun()
+                show_success_message(f"{list_item.item.name if list_item.item else item_name}をリストに追加しました")
+                
+                # 反復処理の確認ダイアログを表示
+                continue_adding = st.success("反復処理を続行しますか?")
+                
+                col_yes, col_no = st.columns(2)
+                with col_yes:
+                    if st.form_submit_button("はい", use_container_width=True):
+                        st.rerun()  # フォームをリセットして続行
+                with col_no:
+                    if st.form_submit_button("いいえ", use_container_width=True):
+                        # 何もせずに終了（フォームはそのまま）
+                        pass
             else:
                 show_error_message("リストへの追加に失敗しました")
+
+# アイテム編集フォーム
+if st.session_state.get('editing_item_id'):
+    st.subheader("商品の編集")
+    
+    # 編集対象のアイテムを取得
+    items = get_shopping_list_items(shopping_list.id)
+    edit_item = next((item for item in items if item.id == st.session_state['editing_item_id']), None)
+    
+    if edit_item:
+        with st.form("edit_item_form"):
+            st.write(f"**編集中の商品:** {edit_item.item.name if edit_item.item else '不明なアイテム'}")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # 予定金額
+                edit_planned_price = st.number_input(
+                    "予定金額", 
+                    min_value=0.0, 
+                    step=10.0, 
+                    value=float(edit_item.planned_price) if edit_item.planned_price else 0.0
+                )
+            
+            with col2:
+                # 店舗選択
+                stores = get_stores(user_id=st.session_state.get('user_id'))
+                store_options = [("", "店舗を選択")] + [(str(s.id), s.name) for s in stores]
+                
+                # 現在の店舗を選択
+                current_store_index = 0
+                if edit_item.store_id:
+                    current_store_index = next(
+                        (i for i, (id, _) in enumerate(store_options) if id == str(edit_item.store_id)), 
+                        0
+                    )
+                
+                edit_store_id = st.selectbox(
+                    "購入予定店舗",
+                    options=[id for id, _ in store_options],
+                    format_func=lambda x: dict(store_options).get(x, "店舗を選択"),
+                    index=current_store_index,
+                    key="edit_store_select"
+                )
+            
+            # 数量
+            edit_quantity = st.number_input(
+                "数量", 
+                min_value=1, 
+                step=1, 
+                value=edit_item.quantity if edit_item.quantity else 1
+            )
+            
+            col3, col4 = st.columns(2)
+            
+            with col3:
+                # 更新ボタン
+                if st.form_submit_button("変更を保存"):
+                    updated_item = update_shopping_list_item(
+                        item_id=edit_item.id,
+                        quantity=edit_quantity,
+                        planned_price=edit_planned_price if edit_planned_price > 0 else None,
+                        store_id=int(edit_store_id) if edit_store_id else None
+                    )
+                    
+                    if updated_item:
+                        show_success_message("アイテム情報を更新しました")
+                        st.session_state['editing_item_id'] = None
+                        st.rerun()
+                    else:
+                        show_error_message("アイテム情報の更新に失敗しました")
+            
+            with col4:
+                # キャンセルボタン
+                if st.form_submit_button("キャンセル"):
+                    st.session_state['editing_item_id'] = None
+                    st.rerun()
 
 # 買い物リストの表示
 st.subheader("現在のリスト")
@@ -303,6 +423,42 @@ if items:
                 disabled=["ID", "商品名", "カテゴリ", "店舗", "合計"]  # 編集できない列
             )
             
+            # 選択用のセレクトボックスを追加
+            available_items = filtered_df.copy()
+            item_options = [(str(row["ID"]), f"{row['商品名']} ({row['カテゴリ']})") for _, row in available_items.iterrows()]
+            
+            selected_item_id = st.selectbox(
+                "操作するアイテムを選択", 
+                options=[id for id, _ in item_options],
+                format_func=lambda x: dict(item_options).get(x, ""),
+                key="select_item_to_action"
+            )
+            
+            # アクションボタンのレイアウト
+            st.write("アイテム操作：")
+            
+            # 3列レイアウトでボタンを配置
+            cols = st.columns(3)
+            
+            # 編集ボタン
+            if cols[0].button("選択したアイテムを編集"):
+                if selected_item_id:
+                    st.session_state['editing_item_id'] = int(selected_item_id)
+                    st.rerun()
+                else:
+                    show_error_message("編集するアイテムを選択してください")
+            
+            # 削除ボタン処理をシンプルに修正
+            if cols[1].button("選択したアイテムを削除", type="primary", use_container_width=True):
+                if selected_item_id:
+                    if remove_item_from_shopping_list(int(selected_item_id)):
+                        show_success_message("アイテムをリストから削除しました")
+                        st.rerun()
+                    else:
+                        show_error_message("アイテムの削除に失敗しました")
+                else:
+                    show_error_message("削除するアイテムを選択してください")
+            
             # 編集内容を反映
             for i, row in edited_df.iterrows():
                 # オリジナルのデータフレームから該当するIDの行を特定
@@ -347,6 +503,43 @@ if items:
                 key=f"store_{store_name}",
                 disabled=["ID", "商品名", "カテゴリ", "店舗", "合計"]  # 編集できない列
             )
+            
+            # 店舗別タブでもアクションボタンを表示
+            st.write("アイテム操作：")
+            
+            # 選択用のセレクトボックスを追加
+            available_store_items = store_df.copy()
+            store_item_options = [(str(row["ID"]), f"{row['商品名']} ({row['カテゴリ']})") for _, row in available_store_items.iterrows()]
+            
+            selected_store_item_id = st.selectbox(
+                "操作するアイテムを選択", 
+                options=[id for id, _ in store_item_options],
+                format_func=lambda x: dict(store_item_options).get(x, ""),
+                key=f"select_store_item_to_action_{store_name}"
+            )
+            
+            # 3列レイアウトでボタンを配置
+            store_cols = st.columns(3)
+            
+            # 編集ボタン
+            store_key = f"store_{store_name}".replace(" ", "_")
+            if store_cols[0].button("選択したアイテムを編集", key=f"edit_btn_{store_key}"):
+                if selected_store_item_id:
+                    st.session_state['editing_item_id'] = int(selected_store_item_id)
+                    st.rerun()
+                else:
+                    show_error_message("編集するアイテムを選択してください")
+            
+            # 削除ボタン処理をシンプルに修正
+            if store_cols[1].button("選択したアイテムを削除", key=f"delete_btn_{store_key}", type="primary", use_container_width=True):
+                if selected_store_item_id:
+                    if remove_item_from_shopping_list(int(selected_store_item_id)):
+                        show_success_message("アイテムをリストから削除しました")
+                        st.rerun()
+                    else:
+                        show_error_message("アイテムの削除に失敗しました")
+                else:
+                    show_error_message("削除するアイテムを選択してください")
             
             # 編集内容を反映
             for j, row in edited_store_df.iterrows():

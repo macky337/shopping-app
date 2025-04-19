@@ -6,12 +6,8 @@ plotly==5.18.0
 pydantic==2.5.2
 bcrypt==4.0.1
 uuid==1.30
-# データベース関連
 psycopg2-binary==2.9.9
 sqlalchemy==2.0.23
 alembic==1.12.1
-# 認証関連
 PyJWT==2.8.0
-# Railway環境設定
 gunicorn==21.2.0
-# sqlite3はPython標準ライブラリのため、追加不要

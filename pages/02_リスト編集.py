@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from utils.ui_utils import show_header, show_success_message, show_error_message
-from utils.ui_utils import check_authentication
+from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_shopping_list, get_shopping_list_items, add_item_to_shopping_list
 from utils.db_utils import update_shopping_list_item, get_stores, get_categories
 from utils.db_utils import create_item, search_items, get_items_by_user, update_shopping_list
@@ -25,6 +25,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# データベース接続インジケータを表示
+show_connection_indicator()
 
 # リスト情報の取得
 shopping_list = get_shopping_list(st.session_state['current_list_id'])

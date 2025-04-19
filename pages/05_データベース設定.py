@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 from utils.ui_utils import show_header, show_success_message, show_error_message
-from utils.ui_utils import check_authentication
+from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_db_health_check
 from dotenv import load_dotenv
 
@@ -16,6 +16,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# データベース接続インジケータを表示
+show_connection_indicator()
 
 # ヘッダー表示
 show_header("データベース設定 🛢️")

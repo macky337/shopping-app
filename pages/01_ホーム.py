@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import datetime
-from utils.ui_utils import show_header, show_shopping_list_summary
+from utils.ui_utils import show_header, show_shopping_list_summary, show_connection_indicator
 from utils.ui_utils import check_authentication, logout
 from utils.db_utils import get_user_by_id, get_shopping_lists, create_shopping_list
 
@@ -21,6 +21,9 @@ st.set_page_config(
 
 # ヘッダー表示
 show_header(f"ようこそ、{user.name}さん")
+
+# データベース接続インジケータを表示（右下に固定表示）
+show_connection_indicator()
 
 # サイドバーにメニュー
 with st.sidebar:

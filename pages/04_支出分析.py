@@ -3,7 +3,7 @@ import pandas as pd
 import altair as alt
 from datetime import datetime, timedelta
 from utils.ui_utils import show_header, show_spending_chart
-from utils.ui_utils import check_authentication
+from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_user_purchases, get_category_spending, get_store_spending
 
 # 認証チェック
@@ -17,6 +17,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# データベース接続インジケータを表示
+show_connection_indicator()
 
 # ヘッダー表示
 show_header("支出分析 📊")

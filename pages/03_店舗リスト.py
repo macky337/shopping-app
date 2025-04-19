@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.ui_utils import show_header, show_success_message, show_error_message
-from utils.ui_utils import check_authentication
+from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_shopping_list, get_shopping_list_items, update_shopping_list_item
 from utils.db_utils import get_stores, record_purchase
 
@@ -21,6 +21,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# データベース接続インジケータを表示
+show_connection_indicator()
 
 # リスト情報の取得
 shopping_list = get_shopping_list(st.session_state['current_list_id'])

@@ -11,6 +11,11 @@ from .models import ShoppingList, Store, ShoppingListItem
 from .db_utils import get_shopping_list_items, get_db_health_check
 # 循環参照を避けるため、関数を直接インポートせず、必要な時に動的にインポートする
 
+# アプリケーション情報
+APP_VERSION = "1.2.0"
+APP_LAST_UPDATED = "2025年4月20日"
+APP_NAME = "買い物リスト管理アプリ BuyCheck"
+
 # セッション管理
 def init_session_state():
     """セッション状態の初期化"""
@@ -301,6 +306,65 @@ def show_db_status():
         st.error(f"データベース接続エラー: {db_status.get('error', '不明なエラー')}")
         st.warning(f"データベースタイプ: {db_status['type']}")
         st.warning(f"環境: {db_status['environment']}")
+
+# データベース接続インジケータを右下に表示
+def show_connection_indicator():
+    """データベース接続状態、バージョン情報、最終更新日を右下に表示する"""
+    # データベース接続状態を取得
+    db_status = get_db_health_check()
+    
+    # 右下に固定表示するためのスタイル
+    indicator_style = """
+    <style>
+        .connection-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(240, 240, 240, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            font-size: 0.8em;
+            max-width: 300px;
+        }
+        .healthy {
+            color: green;
+        }
+        .unhealthy {
+            color: red;
+        }
+        .app-info {
+            margin-top: 5px;
+            border-top: 1px solid #ddd;
+            padding-top: 5px;
+        }
+    </style>
+    """
+    
+    # 接続状態に応じたクラス
+    status_class = "healthy" if db_status['status'] == 'healthy' else "unhealthy"
+    status_icon = "✅" if db_status['status'] == 'healthy' else "❌"
+    
+    # HTMLの構築
+    html = f"""
+    {indicator_style}
+    <div class="connection-indicator">
+        <div>
+            <span class="{status_class}">{status_icon} DB接続: {db_status['status']}</span>
+            <span>({db_status['type']})</span>
+        </div>
+        <div>レイテンシ: {db_status.get('latency_ms', 'N/A')}ms</div>
+        <div>環境: {db_status.get('environment', 'N/A')}</div>
+        <div class="app-info">
+            <div>{APP_NAME} v{APP_VERSION}</div>
+            <div>最終更新日: {APP_LAST_UPDATED}</div>
+        </div>
+    </div>
+    """
+    
+    # HTMLを表示
+    st.markdown(html, unsafe_allow_html=True)
 
 # カテゴリ関連
 def get_category_options():

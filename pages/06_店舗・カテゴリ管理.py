@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from utils.ui_utils import show_header, show_success_message, show_error_message
-from utils.ui_utils import check_authentication
+from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_stores, get_categories, create_store, create_category
 
 # 認証チェック
@@ -15,6 +15,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# データベース接続インジケータを表示
+show_connection_indicator()
 
 # ヘッダー表示
 show_header("店舗・カテゴリ管理 🏪")

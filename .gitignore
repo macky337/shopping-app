@@ -114,3 +114,14 @@ venv.bak/
 
 # Local configuration
 config.local.toml
+
+# ローカルデータベースファイル
+shopping_app.db
+
+# macOS固有のファイル
+.DS_Store
+
+# Windows固有のファイル
+Thumbs.db
+ehthumbs.db
+Desktop.ini

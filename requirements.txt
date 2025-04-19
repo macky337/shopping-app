@@ -12,4 +12,6 @@ sqlalchemy==2.0.23
 alembic==1.12.1
 # 認証関連
 PyJWT==2.8.0
+# Railway環境設定
+gunicorn==21.2.0
 # sqlite3はPython標準ライブラリのため、追加不要

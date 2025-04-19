@@ -6,7 +6,7 @@ from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_shopping_list, get_shopping_list_items, add_item_to_shopping_list
 from utils.db_utils import update_shopping_list_item, get_stores, get_categories
 from utils.db_utils import create_item, search_items, get_items_by_user, update_shopping_list
-from utils.db_utils import remove_item_from_shopping_list
+from utils.db_utils import remove_item_from_shopping_list, delete_shopping_list_items
 
 # 認証チェック
 if not check_authentication():
@@ -77,6 +77,10 @@ if 'search_query' not in st.session_state:
 if 'selected_existing_item_id' not in st.session_state:
     st.session_state['selected_existing_item_id'] = None
 
+# 複数アイテム選択用のセッション変数
+if 'selected_items' not in st.session_state:
+    st.session_state['selected_items'] = []
+
 # 前回選択したアイテムのカテゴリ情報を保持
 if 'selected_item_category_id' not in st.session_state:
     st.session_state['selected_item_category_id'] = None
@@ -84,6 +88,22 @@ if 'selected_item_category_id' not in st.session_state:
 # 編集対象のアイテムIDをセッションに保存
 if 'editing_item_id' not in st.session_state:
     st.session_state['editing_item_id'] = None
+
+# チェックボックス選択状態を保存するセッション変数
+if 'item_selection' not in st.session_state:
+    st.session_state['item_selection'] = {}
+
+# アイテム選択状態をリセットする関数
+def reset_item_selection():
+    st.session_state['item_selection'] = {}
+
+# 選択済みアイテムIDを取得する関数
+def get_selected_item_ids():
+    return [item_id for item_id, selected in st.session_state['item_selection'].items() if selected]
+
+# チェックボックスの状態変更時に呼び出される関数
+def update_item_selection(item_id, value):
+    st.session_state['item_selection'][item_id] = value
 
 # カテゴリを自動設定する関数
 def update_category_from_item(item_id):
@@ -352,6 +372,75 @@ if st.session_state.get('editing_item_id'):
 # 買い物リストの表示
 st.subheader("現在のリスト")
 
+# 複数選択コントロールを追加
+col_refresh, col_batch = st.columns([3, 1])
+with col_batch:
+    # 一括操作ボタンを追加
+    if st.button("選択した商品を一括操作", use_container_width=True):
+        st.session_state['show_batch_actions'] = True
+    
+# 一括操作セクションを表示
+if st.session_state.get('show_batch_actions', False):
+    selected_ids = get_selected_item_ids()
+    
+    if not selected_ids:
+        st.warning("一括操作するアイテムが選択されていません")
+        if st.button("閉じる"):
+            st.session_state['show_batch_actions'] = False
+    else:
+        st.info(f"選択されたアイテム数: {len(selected_ids)}個")
+        
+        # 一括操作の種類を選択
+        batch_action = st.radio("一括操作の種類", ["削除", "店舗変更"], horizontal=True)
+        
+        if batch_action == "削除":
+            if st.button("選択した商品を一括削除", type="primary"):
+                # 選択したアイテムを削除
+                if delete_shopping_list_items(selected_ids):
+                    show_success_message(f"{len(selected_ids)}個のアイテムを削除しました")
+                    # 選択状態をリセット
+                    reset_item_selection()
+                    st.session_state['show_batch_actions'] = False
+                    st.rerun()
+                else:
+                    show_error_message("アイテムの削除に失敗しました")
+        
+        elif batch_action == "店舗変更":
+            # 店舗選択
+            stores = get_stores(user_id=st.session_state.get('user_id'))
+            store_options = [("", "店舗を選択")] + [(str(s.id), s.name) for s in stores]
+            batch_store_id = st.selectbox(
+                "新しい購入予定店舗",
+                options=[id for id, _ in store_options],
+                format_func=lambda x: dict(store_options).get(x, "店舗を選択"),
+                key="batch_store_select"
+            )
+            
+            if batch_store_id and st.button("店舗を一括変更", type="primary"):
+                # 選択したアイテムの店舗を変更
+                success_count = 0
+                for item_id in selected_ids:
+                    updated_item = update_shopping_list_item(
+                        item_id=item_id,
+                        store_id=int(batch_store_id) if batch_store_id else None
+                    )
+                    if updated_item:
+                        success_count += 1
+                
+                if success_count > 0:
+                    show_success_message(f"{success_count}個のアイテムの店舗を変更しました")
+                    # 選択状態をリセット
+                    reset_item_selection()
+                    st.session_state['show_batch_actions'] = False
+                    st.rerun()
+                else:
+                    show_error_message("アイテムの更新に失敗しました")
+        
+        # 閉じるボタン
+        if st.button("閉じる"):
+            st.session_state['show_batch_actions'] = False
+            st.rerun()
+
 # リストアイテムを取得
 items = get_shopping_list_items(shopping_list.id)
 
@@ -364,196 +453,132 @@ if items:
         store_name = item.store.name if item.store else "未指定"
         category_name = item.item.category.name if item.item and item.item.category else "未分類"
         
+        # セッションにチェックボックスの初期状態を設定
+        if item.id not in st.session_state['item_selection']:
+            st.session_state['item_selection'][item.id] = False
+        
         item_data.append({
+            "選択": st.session_state['item_selection'][item.id],
             "ID": item.id,
             "商品名": item.item.name if item.item else "不明なアイテム",
             "カテゴリ": category_name,
+            "数量": item.quantity if item.quantity else 1,
+            "予定金額": item.planned_price if item.planned_price else "-",
+            "購入価格": item.purchases[0].actual_price if item.purchases and len(item.purchases) > 0 else "-",
             "店舗": store_name,
-            "予定金額": item.planned_price or 0,
-            "数量": item.quantity,
-            "合計": (item.planned_price or 0) * item.quantity,
-            "購入済": item.checked
+            "購入済": "✓" if item.checked else "",
         })
     
-    # DataFrameを作成
+    # DataFrame作成
     df = pd.DataFrame(item_data)
     
-    # 店舗別に分類して表示
-    stores_in_list = df["店舗"].unique().tolist()
+    # チェックボックス列を追加したデータエディタを表示
+    edited_df = st.data_editor(
+        df,
+        column_config={
+            "選択": st.column_config.CheckboxColumn(
+                "選択",
+                help="チェックを入れて一括操作できます",
+                default=False,
+            ),
+            "ID": st.column_config.Column(
+                "ID",
+                disabled=True,
+                required=True
+            ),
+            "商品名": st.column_config.Column(
+                "商品名",
+                disabled=True,
+                required=True
+            ),
+            "カテゴリ": st.column_config.Column(
+                "カテゴリ",
+                disabled=True
+            ),
+            "数量": st.column_config.NumberColumn(
+                "数量",
+                disabled=True
+            ),
+            "予定金額": st.column_config.NumberColumn(
+                "予定金額",
+                disabled=True
+            ),
+            "購入価格": st.column_config.Column(
+                "購入価格",
+                disabled=True
+            ),
+            "店舗": st.column_config.Column(
+                "店舗",
+                disabled=True
+            ),
+            "購入済": st.column_config.Column(
+                "購入済",
+                disabled=True
+            ),
+        },
+        hide_index=True,
+        key="item_table"
+    )
     
-    tab_names = ["すべて"] + stores_in_list
-    tabs = st.tabs(tab_names)
+    # チェックボックスの状態を更新
+    for _, row in edited_df.iterrows():
+        item_id = row["ID"]
+        is_selected = row["選択"]
+        if st.session_state['item_selection'].get(item_id) != is_selected:
+            st.session_state['item_selection'][item_id] = is_selected
     
-    # すべてのタブ
-    with tabs[0]:
-        # 小計を計算
-        total = df["合計"].sum()
-        st.caption(f"合計予定金額: ¥{total:,.0f}")
+    # アイテム操作用のボタン
+    for item in items:
+        item_name = item.item.name if item.item else "不明なアイテム"
+        store_name = item.store.name if item.store else "未指定"
         
-        # カテゴリでフィルタリング機能を追加
-        categories_in_list = sorted(df["カテゴリ"].unique().tolist())
-        filter_category = st.selectbox(
-            "カテゴリで絞り込み", 
-            ["すべてのカテゴリ"] + categories_in_list,
-            key="filter_category_list"
-        )
-        
-        # フィルタリングされたデータフレームを作成
-        filtered_df = df.copy()  # ここでコピーを作成
-        if filter_category != "すべてのカテゴリ":
-            filtered_df = filtered_df[filtered_df["カテゴリ"] == filter_category]
-            # フィルタリング後の小計を再計算
-            filtered_total = filtered_df["合計"].sum()
-            st.caption(f"{filter_category} 合計予定金額: ¥{filtered_total:,.0f}")
-        
-        # DataFrameの表示
-        if not filtered_df.empty:
-            edited_df = st.data_editor(
-                filtered_df,
-                column_config={
-                    "ID": st.column_config.NumberColumn("ID", required=True),
-                    "商品名": st.column_config.TextColumn("商品名"),
-                    "カテゴリ": st.column_config.TextColumn("カテゴリ"),
-                    "店舗": st.column_config.TextColumn("店舗"),
-                    "予定金額": st.column_config.NumberColumn("予定金額", format="¥%d"),
-                    "数量": st.column_config.NumberColumn("数量", min_value=1, step=1),
-                    "合計": st.column_config.NumberColumn("合計", format="¥%d"),
-                    "購入済": st.column_config.CheckboxColumn("購入済")
-                },
-                hide_index=True,
-                use_container_width=True,
-                key="all_items",
-                disabled=["ID", "商品名", "カテゴリ", "店舗", "合計"]  # 編集できない列
-            )
+        with st.expander(f"{item_name} - {store_name}"):
+            col1, col2, col3 = st.columns(3)
             
-            # 選択用のセレクトボックスを追加
-            available_items = filtered_df.copy()
-            item_options = [(str(row["ID"]), f"{row['商品名']} ({row['カテゴリ']})") for _, row in available_items.iterrows()]
-            
-            selected_item_id = st.selectbox(
-                "操作するアイテムを選択", 
-                options=[id for id, _ in item_options],
-                format_func=lambda x: dict(item_options).get(x, ""),
-                key="select_item_to_action"
-            )
-            
-            # アクションボタンのレイアウト
-            st.write("アイテム操作：")
-            
-            # 3列レイアウトでボタンを配置
-            cols = st.columns(3)
-            
-            # 編集ボタン
-            if cols[0].button("選択したアイテムを編集"):
-                if selected_item_id:
-                    st.session_state['editing_item_id'] = int(selected_item_id)
+            with col1:
+                if st.button("編集", key=f"edit_{item.id}", use_container_width=True):
+                    st.session_state['editing_item_id'] = item.id
                     st.rerun()
-                else:
-                    show_error_message("編集するアイテムを選択してください")
             
-            # 削除ボタン処理をシンプルに修正
-            if cols[1].button("選択したアイテムを削除", type="primary", use_container_width=True):
-                if selected_item_id:
-                    if remove_item_from_shopping_list(int(selected_item_id)):
-                        show_success_message("アイテムをリストから削除しました")
+            with col2:
+                if st.button("削除", key=f"delete_{item.id}", use_container_width=True):
+                    if remove_item_from_shopping_list(item.id):
+                        show_success_message(f"{item_name}をリストから削除しました")
                         st.rerun()
                     else:
                         show_error_message("アイテムの削除に失敗しました")
-                else:
-                    show_error_message("削除するアイテムを選択してください")
             
-            # 編集内容を反映
-            for i, row in edited_df.iterrows():
-                # オリジナルのデータフレームから該当するIDの行を特定
-                original_rows = df[df["ID"] == row["ID"]]
-                if not original_rows.empty:
-                    original_row = original_rows.iloc[0]
-                    if (row["数量"] != original_row["数量"] or 
-                        row["購入済"] != original_row["購入済"]):
-                        update_shopping_list_item(
-                            item_id=row["ID"],
-                            quantity=row["数量"],
-                            checked=row["購入済"]
-                        )
-        else:
-            st.info(f"このカテゴリ（{filter_category}）に該当する商品はありません")
-    
-    # 店舗別タブ
-    for i, store_name in enumerate(stores_in_list):
-        with tabs[i+1]:
-            # 店舗別にフィルタリング
-            store_df = df[df["店舗"] == store_name].copy()
-            
-            # 小計を計算
-            store_total = store_df["合計"].sum()
-            st.caption(f"{store_name} 合計予定金額: ¥{store_total:,.0f}")
-            
-            # DataFrameの表示
-            edited_store_df = st.data_editor(
-                store_df,
-                column_config={
-                    "ID": st.column_config.NumberColumn("ID", required=True),
-                    "商品名": st.column_config.TextColumn("商品名"),
-                    "カテゴリ": st.column_config.TextColumn("カテゴリ"),
-                    "店舗": st.column_config.TextColumn("店舗"),
-                    "予定金額": st.column_config.NumberColumn("予定金額", format="¥%d"),
-                    "数量": st.column_config.NumberColumn("数量", min_value=1, step=1),
-                    "合計": st.column_config.NumberColumn("合計", format="¥%d"),
-                    "購入済": st.column_config.CheckboxColumn("購入済")
-                },
-                hide_index=True,
-                use_container_width=True,
-                key=f"store_{store_name}",
-                disabled=["ID", "商品名", "カテゴリ", "店舗", "合計"]  # 編集できない列
-            )
-            
-            # 店舗別タブでもアクションボタンを表示
-            st.write("アイテム操作：")
-            
-            # 選択用のセレクトボックスを追加
-            available_store_items = store_df.copy()
-            store_item_options = [(str(row["ID"]), f"{row['商品名']} ({row['カテゴリ']})") for _, row in available_store_items.iterrows()]
-            
-            selected_store_item_id = st.selectbox(
-                "操作するアイテムを選択", 
-                options=[id for id, _ in store_item_options],
-                format_func=lambda x: dict(store_item_options).get(x, ""),
-                key=f"select_store_item_to_action_{store_name}"
-            )
-            
-            # 3列レイアウトでボタンを配置
-            store_cols = st.columns(3)
-            
-            # 編集ボタン
-            store_key = f"store_{store_name}".replace(" ", "_")
-            if store_cols[0].button("選択したアイテムを編集", key=f"edit_btn_{store_key}"):
-                if selected_store_item_id:
-                    st.session_state['editing_item_id'] = int(selected_store_item_id)
-                    st.rerun()
-                else:
-                    show_error_message("編集するアイテムを選択してください")
-            
-            # 削除ボタン処理をシンプルに修正
-            if store_cols[1].button("選択したアイテムを削除", key=f"delete_btn_{store_key}", type="primary", use_container_width=True):
-                if selected_store_item_id:
-                    if remove_item_from_shopping_list(int(selected_store_item_id)):
-                        show_success_message("アイテムをリストから削除しました")
-                        st.rerun()
-                    else:
-                        show_error_message("アイテムの削除に失敗しました")
-                else:
-                    show_error_message("削除するアイテムを選択してください")
-            
-            # 編集内容を反映
-            for j, row in edited_store_df.iterrows():
-                original_index = df[df["ID"] == row["ID"]].index[0]
-                original_row = df.iloc[original_index]
-                if (row["数量"] != original_row["数量"] or 
-                    row["購入済"] != original_row["購入済"]):
-                    update_shopping_list_item(
-                        item_id=row["ID"],
-                        quantity=row["数量"],
-                        checked=row["購入済"]
+            with col3:
+                # 「購入済み」トグルボタン表示
+                purchase_label = "購入取消" if item.checked else "購入済みにする"
+                if st.button(purchase_label, key=f"purchase_{item.id}", use_container_width=True):
+                    # 購入済みフラグを切り替え
+                    updated_item = update_shopping_list_item(
+                        item_id=item.id,
+                        checked=not item.checked
                     )
+                    
+                    if updated_item:
+                        status = "購入済み" if not item.checked else "未購入"
+                        show_success_message(f"{item_name}を{status}に変更しました")
+                        st.rerun()
+                    else:
+                        show_error_message("アイテム状態の更新に失敗しました")
 else:
-    st.info("このリストにはまだアイテムがありません。上のフォームからアイテムを追加してください。")
+    st.info("リストにアイテムがありません。商品を追加してください。")
+
+# 買い物リストがなくなった場合のクリーンアップ
+def clear_current_list():
+    if 'current_list_id' in st.session_state:
+        del st.session_state['current_list_id']
+    
+    st.switch_page("pages/01_ホーム.py")
+
+# リスト削除ボタン
+with st.expander("リストの削除", expanded=False):
+    st.warning("このリストを削除しますか？この操作は元に戻せません。")
+    
+    if st.button("リストを削除する", key="delete_list", use_container_width=True):
+        # TODO: リスト削除処理を実装
+        # ホーム画面に戻る
+        clear_current_list()

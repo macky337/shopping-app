@@ -507,20 +507,62 @@ def delete_shopping_list_item(item_id: int) -> bool:
         return False
 
 def remove_item_from_shopping_list(item_id: int) -> bool:
-    """買い物リストからアイテムを削除"""
-    session = get_db_session()
+    """ショッピングリストから特定のアイテムを削除する
+
+    Args:
+        item_id (int): 削除するショッピングリストアイテムのID
+
+    Returns:
+        bool: 削除に成功した場合はTrue、失敗した場合はFalse
+    """
+    if not item_id:
+        return False
+    
     try:
+        session = SessionLocal()
         item = session.query(ShoppingListItem).filter(ShoppingListItem.id == item_id).first()
+        
         if not item:
             return False
-            
+        
         session.delete(item)
         session.commit()
         return True
     except Exception as e:
-        logger.error(f"買い物リストアイテム削除エラー: {e}")
+        logger.error(f"ショッピングリストアイテムの削除エラー: {e}")
+        return False
+    finally:
+        session.close()
+
+def delete_shopping_list_items(item_ids: List[int]) -> bool:
+    """複数のショッピングリストアイテムを一括削除する
+
+    Args:
+        item_ids (List[int]): 削除するショッピングリストアイテムのIDリスト
+
+    Returns:
+        bool: 削除に成功した場合はTrue、失敗した場合はFalse
+    """
+    if not item_ids:
+        return False
+    
+    try:
+        session = SessionLocal()
+        
+        # 一括削除を実行
+        for item_id in item_ids:
+            item = session.query(ShoppingListItem).filter(ShoppingListItem.id == item_id).first()
+            if item:
+                session.delete(item)
+        
+        session.commit()
+        return True
+    except Exception as e:
+        logger.error(f"ショッピングリストアイテムの一括削除エラー: {e}")
         session.rollback()
         return False
+    finally:
+        session.close()
 
 # 購入履歴関連の関数
 def record_purchase(

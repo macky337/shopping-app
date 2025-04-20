@@ -26,8 +26,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# データベース接続インジケータを表示
-show_connection_indicator()
+
 
 # リスト情報の取得
 shopping_list = get_shopping_list(st.session_state['current_list_id'])

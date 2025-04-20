@@ -383,28 +383,66 @@ def show_hamburger_menu():
                 st.switch_page("pages/06_店舗・カテゴリ管理.py")
 
 def show_bottom_nav():
-    """画面下部にタブバーを表示"""
-    # CSS for fixed bottom navigation
-    st.markdown("""
+    """画面下部に常時固定されるナビゲーション（st.button使用・認証維持・依存なし）"""
+    st.markdown('''
     <style>
-    .bottom-nav {position: fixed; bottom: 0; left: 0; width: 100%; background-color: #f0f2f6; padding: 8px 0; border-top: 1px solid #ccc; z-index: 1000;}
-    .bottom-nav .nav-btn {display: inline-block; width: 25%; text-align: center; font-size: 14px;}
+    .fixed-bottom-nav {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100vw;
+        background: #f0f2f6;
+        border-top: 1px solid #ccc;
+        z-index: 9999;
+        box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+        padding: 0 0;
+    }
+    .fixed-bottom-nav-inner {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        height: 56px;
+        max-width: 480px;
+        margin: 0 auto;
+    }
+    .bottom-nav-btn {
+        width: 100%;
+        height: 56px;
+        background: none;
+        border: none;
+        font-size: 13px;
+        color: #333;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+    .bottom-nav-btn .nav-icon { font-size: 22px; }
     </style>
-    """, unsafe_allow_html=True)
-    # Buttons
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        if st.button("🏠 ホーム", key="nav_home"):
-            st.switch_page("pages/01_ホーム.py")
-    with col2:
-        if st.button("📋 リスト", key="nav_list"):
-            st.switch_page("pages/02_リスト編集.py")
-    with col3:
-        if st.button("📊 分析", key="nav_analysis"):
-            st.switch_page("pages/04_支出分析.py")
-    with col4:
-        if st.button("⚙️ 設定", key="nav_settings"):
-            st.switch_page("pages/06_店舗・カテゴリ管理.py")
+    <div class="fixed-bottom-nav">
+      <div class="fixed-bottom-nav-inner" id="st-bottom-nav"></div>
+    </div>
+    <script>
+    // Streamlitのボタン配置用ダミーdiv
+    const navDiv = window.parent.document.getElementById('st-bottom-nav');
+    if(navDiv) navDiv.style.pointerEvents = 'none';
+    </script>
+    ''', unsafe_allow_html=True)
+    # Streamlitのカラムでボタンを横並び
+    cols = st.columns(4)
+    with cols[0]:
+        if st.button('🏠\nホーム', key='nav_home', use_container_width=True):
+            st.switch_page('pages/01_ホーム.py')
+    with cols[1]:
+        if st.button('📋\nリスト', key='nav_list', use_container_width=True):
+            st.switch_page('pages/02_リスト編集.py')
+    with cols[2]:
+        if st.button('📊\n分析', key='nav_analysis', use_container_width=True):
+            st.switch_page('pages/04_支出分析.py')
+    with cols[3]:
+        if st.button('⚙️\n設定', key='nav_settings', use_container_width=True):
+            st.switch_page('pages/06_店舗・カテゴリ管理.py')
 
 # カテゴリ関連
 def get_category_options():

@@ -131,6 +131,9 @@ def show_login_screen():
                         st.success("登録が完了しました！ログインしてください")
                     else:
                         st.error("登録に失敗しました。すでに使われているメールアドレスかもしれません")
+    
+    # ログイン画面にも接続インジケータを表示
+    show_connection_indicator()
 
 # 日付処理
 def format_date(date_obj, format="%Y年%m月%d日"):

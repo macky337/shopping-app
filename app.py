@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.ui_utils import show_header, show_success_message, show_error_message, init_session_state
+from utils.ui_utils import show_header, show_success_message, show_error_message, init_session_state, show_connection_indicator
 from utils.db_utils import register_user, login_user
 import datetime
 import os
@@ -73,6 +73,8 @@ with tab2:
                     # 登録失敗
                     show_error_message("このメールアドレスは既に登録されています")
 
+# 接続インジケータ表示
+show_connection_indicator()
 # フッター情報
 st.divider()
 st.caption("© 2025 買い物アプリ")

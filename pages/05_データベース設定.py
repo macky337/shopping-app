@@ -17,8 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# データベース接続インジケータを表示
-show_connection_indicator()
+
 
 # ヘッダー表示
 show_header("データベース設定 🛢️")

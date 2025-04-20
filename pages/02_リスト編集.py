@@ -295,7 +295,7 @@ with add_item_container:
                 show_success_message(f"{list_item.item.name if list_item.item else item_name}をリストに追加しました")
                 
                 # 反復処理の確認ダイアログを表示
-                continue_adding = st.success("リストを追加しますか?")
+                st.info("反復処理を続行しますか?")
                 
                 col_yes, col_no = st.columns(2)
                 with col_yes:

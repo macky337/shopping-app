@@ -138,52 +138,68 @@ with st.sidebar:
 # メインコンテンツ
 st.subheader("商品の追加")
 
-# 商品追加フォーム
-with st.form("add_item_form"):
+"""
+商品追加セクション (フォームを使用せず、動的に更新)
+"""
+add_item_container = st.container()
+with add_item_container:
     # 商品追加方法の選択
     input_method = st.radio("商品の追加方法", ["既存の商品から選択", "新しい商品を入力"], horizontal=True)
-    
+
     col1, col2 = st.columns(2)
-    
+
     with col1:
         if input_method == "既存の商品から選択":
-            # 既存の商品から選択する
-            # カテゴリによるフィルタリング
+            # カテゴリ絞り込み用selectbox
             categories = get_categories(user_id=st.session_state.get('user_id'))
             category_options = ["すべてのカテゴリ"] + [c.name for c in categories]
-            selected_category = st.selectbox("カテゴリで絞り込み", category_options, key="filter_category_select")
-            
-            # 商品データを取得してフィルタリング
-            items = get_items_by_user(st.session_state.get('user_id'))
-            filtered_items = items
-            
+            if 'filter_category' not in st.session_state:
+                st.session_state['filter_category'] = "すべてのカテゴリ"
+            # カテゴリ選択を更新
+            selected_category = st.selectbox(
+                "カテゴリで絞り込み", 
+                category_options, 
+                key="filter_category"
+            )
+
+            # カテゴリIDを取得
+            selected_category_id = None
             if selected_category != "すべてのカテゴリ":
-                filtered_items = [item for item in items if item.category and item.category.name == selected_category]
-            
+                selected_category_id = next((c.id for c in categories if c.name == selected_category), None)
+
+            # DBレベルでカテゴリで絞り込む
+            items = get_items_by_user(st.session_state.get('user_id'), category_id=selected_category_id)
+            filtered_items = items
+
             if filtered_items:
-                # 商品を選択するセレクトボックスの選択肢を生成
                 item_options = []
                 for item in filtered_items:
                     category_name = item.category.name if item.category else "未分類"
                     item_options.append((str(item.id), f"{item.name} ({category_name})"))
-                
-                # 商品選択
-                selected_item_id = st.selectbox(
-                    "商品を選択", 
-                    options=[id for id, _ in item_options],
-                    format_func=lambda x: dict(item_options).get(x, ""),
-                    key="select_existing_item"
-                )
-                
+                selection_label = "商品を選択"
+                if selected_category != "すべてのカテゴリ":
+                    selection_label = f"商品を選択 ({selected_category}のみ表示)"
+                # カテゴリID を用いて key をユニーク化
+                key_suffix = selected_category_id if selected_category_id is not None else 'all'
+                select_item_key = f"select_existing_item_{key_suffix}"
+                if len(item_options) > 0:
+                    selected_item_id = st.selectbox(
+                        selection_label, 
+                        options=[id for id, _ in item_options],
+                        format_func=lambda x: dict(item_options).get(x, ""),
+                        key=select_item_key,
+                        index=0
+                    )
+                else:
+                    st.info("選択したカテゴリに商品がありません")
+                    selected_item_id = None
                 if selected_item_id:
-                    # 選択されたアイテム情報を表示
                     selected_item = next((item for item in filtered_items if str(item.id) == selected_item_id), None)
                     if selected_item:
                         category_name = selected_item.category.name if selected_item.category else "未分類"
                         st.write(f"**カテゴリ:** {category_name}")
-                        
-                        # フォーム送信時に選択された商品のカテゴリを設定
                         update_category_from_item(int(selected_item_id))
+                        st.session_state['selected_item_id'] = selected_item_id
             else:
                 st.info("選択したカテゴリに商品がありません")
                 selected_item_id = None
@@ -230,7 +246,7 @@ with st.form("add_item_form"):
         )
     
     # 追加ボタン
-    submit_button = st.form_submit_button("リストに追加")
+    submit_button = st.button("リストに追加")
     
     if submit_button:
         if not item_name and input_method == "新しい商品を入力":
@@ -279,15 +295,14 @@ with st.form("add_item_form"):
                 show_success_message(f"{list_item.item.name if list_item.item else item_name}をリストに追加しました")
                 
                 # 反復処理の確認ダイアログを表示
-                continue_adding = st.success("反復処理を続行しますか?")
+                continue_adding = st.success("リストを追加しますか?")
                 
                 col_yes, col_no = st.columns(2)
                 with col_yes:
-                    if st.form_submit_button("はい", use_container_width=True):
-                        st.rerun()  # フォームをリセットして続行
+                    if st.button("はい", use_container_width=True):
+                        st.experimental_rerun()
                 with col_no:
-                    if st.form_submit_button("いいえ", use_container_width=True):
-                        # 何もせずに終了（フォームはそのまま）
+                    if st.button("いいえ", use_container_width=True):
                         pass
             else:
                 show_error_message("リストへの追加に失敗しました")

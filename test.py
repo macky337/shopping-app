@@ -56,6 +56,10 @@ for line in env_content.split("\n"):
     if line.startswith("DATABASE_URL="):
         DATABASE_URL = line[13:]
         break
+# 末尾や先頭の空白・改行を除去
+DATABASE_URL = DATABASE_URL.strip()
+# 改行文字が混入している場合に除去
+DATABASE_URL = DATABASE_URL.replace('\n', '').replace('\r', '')
 
 # 提案されたテーブル構造に基づくSQLコマンド
 CREATE_TABLES_SQL = """
@@ -74,7 +78,8 @@ CREATE TABLE IF NOT EXISTS stores (
     name TEXT NOT NULL,
     category TEXT,
     user_id INTEGER REFERENCES users(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (name, user_id)
 );
 
 -- カテゴリテーブル
@@ -82,7 +87,8 @@ CREATE TABLE IF NOT EXISTS categories (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     user_id INTEGER REFERENCES users(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (name, user_id)
 );
 
 -- 品目テーブル
@@ -92,7 +98,8 @@ CREATE TABLE IF NOT EXISTS items (
     default_price NUMERIC,
     category_id INTEGER REFERENCES categories(id),
     user_id INTEGER REFERENCES users(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (name, user_id)
 );
 
 -- 買い物リスト（親）
@@ -148,8 +155,24 @@ ON CONFLICT DO NOTHING;
 """
 
 try:
-    # 接続
-    conn = psycopg2.connect(DATABASE_URL)
+    # 接続の確認用にフルDSNを表示
+    print(f"使用しているDATABASE_URL: {DATABASE_URL}")
+    import socket
+    from urllib.parse import urlparse
+    # DSNからホストとポートを抽出
+    parsed = urlparse(DATABASE_URL)
+    host = parsed.hostname
+    port = parsed.port or 5432
+    print(f"ソケットレベル接続テスト: {host}:{port}")
+    try:
+        sock = socket.create_connection((host, port), timeout=5)
+        print("ソケット接続成功")
+        sock.close()
+    except Exception as sock_err:
+        print(f"ソケット接続失敗: {sock_err}")
+
+    # タイムアウトを5秒に設定して接続
+    conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
     cur = conn.cursor()
     print("PostgreSQLに接続成功しました！")
 
@@ -157,6 +180,89 @@ try:
     cur.execute(CREATE_TABLES_SQL)
     conn.commit()
     print("テーブル作成成功")
+
+    # ダミーデータ作成
+    print("ダミーデータを挿入中...")
+    # テストユーザー作成
+    cur.execute(
+        """
+        INSERT INTO users (email, password_hash, name)
+        VALUES (%s, %s, %s)
+        ON CONFLICT DO NOTHING
+        """,
+        ('test@example.com', 'testhash', 'テストユーザー')
+    )
+    conn.commit()
+    cur.execute("SELECT id FROM users WHERE email=%s", ('test@example.com',))
+    test_user_id = cur.fetchone()[0]
+
+    # ダミーアイテム作成
+    dummy_items = [
+        ('りんご', 100, '生鮮食品'),
+        ('牛乳', 200, '飲料'),
+        ('卵', 150, '生鮮食品'),
+        ('パン', 120, 'その他'),
+        ('トイレットペーパー', 300, '日用品'),
+    ]
+    item_ids = []
+    for name, price, category_name in dummy_items:
+        cur.execute("SELECT id FROM categories WHERE name=%s", (category_name,))
+        cat_id = cur.fetchone()[0]
+        cur.execute(
+            """
+            INSERT INTO items (name, default_price, category_id, user_id)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT DO NOTHING
+            """,
+            (name, price, cat_id, test_user_id)
+        )
+        conn.commit()
+        cur.execute(
+            "SELECT id FROM items WHERE name=%s AND user_id=%s",
+            (name, test_user_id)
+        )
+        item_ids.append(cur.fetchone()[0])
+
+    # ダミー買い物リスト作成
+    cur.execute(
+        """
+        INSERT INTO shopping_lists (user_id, date, memo)
+        VALUES (%s, %s, %s)
+        RETURNING id
+        """,
+        (test_user_id, '2025-04-20', 'テスト用メモ')
+    )
+    list_id = cur.fetchone()[0]
+    conn.commit()
+
+    # リストアイテム挿入
+    cur.execute("SELECT id FROM stores WHERE name=%s", ('イオン',))
+    store_id = cur.fetchone()[0]
+    for idx, item_id in enumerate(item_ids, start=1):
+        cur.execute(
+            """
+            INSERT INTO shopping_list_items (shopping_list_id, item_id, store_id, planned_price, quantity)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (list_id, item_id, store_id, 100 * idx, idx)
+        )
+    conn.commit()
+
+    # 購入履歴挿入 (最初のアイテムのみ)
+    cur.execute(
+        "SELECT id FROM shopping_list_items WHERE shopping_list_id=%s LIMIT 1",
+        (list_id,)
+    )
+    sli_id = cur.fetchone()[0]
+    cur.execute(
+        """
+        INSERT INTO purchases (shopping_list_item_id, actual_price, quantity)
+        VALUES (%s, %s, %s)
+        """,
+        (sli_id, 90, 1)
+    )
+    conn.commit()
+    print("ダミーデータ作成完了。")
 
     # テーブル一覧を確認
     cur.execute("""

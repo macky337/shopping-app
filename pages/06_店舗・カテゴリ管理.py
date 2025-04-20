@@ -108,7 +108,13 @@ with tab2:
         st.write("### 登録済みのカテゴリ")
         # データフレーム用のデータを準備
         category_data = []
+        # 同名カテゴリの重複排除用セット
+        seen_names = set()
         for category in categories:
+            # 名前で重複を除外
+            if category.name in seen_names:
+                continue
+            seen_names.add(category.name)
             category_type = "共有" if category.user_id is None else "個人"
             category_data.append({
                 "ID": category.id,

@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from utils.ui_utils import show_header, show_success_message, show_error_message
+from utils.ui_utils import show_header, show_success_message, show_error_message, show_hamburger_menu, show_bottom_nav
 from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_shopping_list, get_shopping_list_items, add_item_to_shopping_list
 from utils.db_utils import update_shopping_list_item, get_stores, get_categories
@@ -122,20 +122,8 @@ def update_category_from_item(item_id: int):
     else:
         st.session_state['selected_item_category_id'] = None
 
-# サイドバー
-with st.sidebar:
-    st.header("メニュー")
-    if st.button("ホームに戻る", use_container_width=True):
-        st.switch_page("pages/01_ホーム.py")
-        
-    if st.button("買い物モードへ", use_container_width=True):
-        st.switch_page("pages/03_店舗リスト.py")
-        
-    # リスト情報を表示
-    st.subheader("リスト情報")
-    st.info(f"作成日: {shopping_list.date}")
-    if shopping_list.memo:
-        st.info(f"メモ: {shopping_list.memo}")
+# 折りたたみ式メニュー
+show_hamburger_menu()
 
 # メインコンテンツ
 st.subheader("商品の追加")
@@ -633,3 +621,6 @@ with st.expander("リストの削除", expanded=False):
         # TODO: リスト削除処理を実装
         # ホーム画面に戻る
         clear_current_list()
+
+# ページ下部にタブバーを追加
+show_bottom_nav()

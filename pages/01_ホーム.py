@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import datetime
-from utils.ui_utils import show_header, show_shopping_list_summary
-from utils.ui_utils import check_authentication, logout
+from utils.ui_utils import show_header, show_shopping_list_summary, check_authentication, logout, show_hamburger_menu, show_bottom_nav
 from utils.db_utils import get_user_by_id, get_shopping_lists, create_shopping_list
 
 # 認証チェック
@@ -51,19 +50,22 @@ with st.sidebar:
             else:
                 st.error("リスト名を入力してください")
     
-    # 各種管理画面へのリンク
-    st.subheader("管理")
-    if st.button("🏪 店舗・カテゴリ管理", use_container_width=True):
-        st.switch_page("pages/06_店舗・カテゴリ管理.py")
-        
-    if st.button("⚙️ データベース設定", use_container_width=True):
-        st.switch_page("pages/05_データベース設定.py")
-        
-    # ログアウトボタン
+    # ナビゲーションをハンバーガーメニューに置き換え
+    show_hamburger_menu()
+    
+    # アカウント（ログアウト）
     st.subheader("アカウント")
     if st.button("ログアウト", use_container_width=True):
         logout()
         st.rerun()
+    
+    # 更新情報
+    st.markdown("---")
+    st.caption("🆕 最近の更新")
+    st.caption("・店舗・カテゴリ管理機能を追加")
+    st.caption("・複数店舗対応を強化")
+    st.caption("・Railway PostgreSQLサポート")
+    st.caption(f"最終更新: 2025年4月17日")
 
 # メインコンテンツ
 st.subheader("最近の買い物リスト")
@@ -111,10 +113,5 @@ with st.expander("💡 使い方ガイド", expanded=False):
     - **カテゴリの追加**: オリジナルのカテゴリを作成できます
     """)
     
-# 更新情報
-st.sidebar.markdown("---")
-st.sidebar.caption("🆕 最近の更新")
-st.sidebar.caption("・店舗・カテゴリ管理機能を追加")
-st.sidebar.caption("・複数店舗対応を強化")
-st.sidebar.caption("・Railway PostgreSQLサポート")
-st.sidebar.caption(f"最終更新: 2025年4月17日")
+# ページ下部にタブバーを追加
+show_bottom_nav()

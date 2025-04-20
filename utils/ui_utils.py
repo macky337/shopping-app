@@ -369,6 +369,43 @@ def show_connection_indicator():
     # HTMLを表示
     st.markdown(html, unsafe_allow_html=True)
 
+def show_hamburger_menu():
+    """折りたたみ式サイドバーにナビゲーションメニューを表示"""
+    with st.sidebar:
+        with st.expander("≡ メニュー", expanded=False):
+            if st.button("🏠 ホーム", use_container_width=True):
+                st.switch_page("pages/01_ホーム.py")
+            if st.button("📋 リスト", use_container_width=True):
+                st.switch_page("pages/02_リスト編集.py")
+            if st.button("📊 分析", use_container_width=True):
+                st.switch_page("pages/04_支出分析.py")
+            if st.button("⚙️ 設定", use_container_width=True):
+                st.switch_page("pages/06_店舗・カテゴリ管理.py")
+
+def show_bottom_nav():
+    """画面下部にタブバーを表示"""
+    # CSS for fixed bottom navigation
+    st.markdown("""
+    <style>
+    .bottom-nav {position: fixed; bottom: 0; left: 0; width: 100%; background-color: #f0f2f6; padding: 8px 0; border-top: 1px solid #ccc; z-index: 1000;}
+    .bottom-nav .nav-btn {display: inline-block; width: 25%; text-align: center; font-size: 14px;}
+    </style>
+    """, unsafe_allow_html=True)
+    # Buttons
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if st.button("🏠 ホーム", key="nav_home"):
+            st.switch_page("pages/01_ホーム.py")
+    with col2:
+        if st.button("📋 リスト", key="nav_list"):
+            st.switch_page("pages/02_リスト編集.py")
+    with col3:
+        if st.button("📊 分析", key="nav_analysis"):
+            st.switch_page("pages/04_支出分析.py")
+    with col4:
+        if st.button("⚙️ 設定", key="nav_settings"):
+            st.switch_page("pages/06_店舗・カテゴリ管理.py")
+
 # カテゴリ関連
 def get_category_options():
     """カテゴリ選択肢を取得する"""

@@ -1,4 +1,5 @@
 import os
+import psycopg2
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -16,6 +17,10 @@ logger = logging.getLogger(__name__)
 
 # 環境変数の読み込み
 load_dotenv()
+
+def get_connection():
+    """psycopg2でPostgreSQLへの生接続を取得"""
+    return psycopg2.connect(os.environ["DATABASE_URL"])
 
 # データベース接続情報
 DB_URL = os.getenv("DATABASE_URL", "sqlite:///shopping_app.db")

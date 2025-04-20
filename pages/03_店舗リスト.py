@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.ui_utils import show_header, show_success_message, show_error_message
+from utils.ui_utils import show_header, show_success_message, show_error_message, show_hamburger_menu, show_bottom_nav
 from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_shopping_list, get_shopping_list_items, update_shopping_list_item
 from utils.db_utils import get_stores, record_purchase
@@ -39,20 +39,8 @@ list_items = get_shopping_list_items(shopping_list.id)
 # ヘッダー表示
 show_header(f"{shopping_list.name} - 買い物モード")
 
-# サイドバー
-with st.sidebar:
-    st.header("メニュー")
-    if st.button("ホームに戻る", use_container_width=True):
-        st.switch_page("pages/01_ホーム.py")
-        
-    if st.button("リスト編集に戻る", use_container_width=True):
-        st.switch_page("pages/02_リスト編集.py")
-    
-    # リスト情報を表示
-    st.subheader("リスト情報")
-    st.info(f"作成日: {shopping_list.date}")
-    if shopping_list.memo:
-        st.info(f"メモ: {shopping_list.memo}")
+# 折りたたみ式メニュー
+show_hamburger_menu()
 
 # メインコンテンツ - 店舗別タブを作成
 if list_items:
@@ -172,3 +160,6 @@ if list_items:
                         st.divider()
 else:
     st.info("このリストには商品が登録されていません。リスト編集画面から商品を追加してください。")
+
+# ページ下部にタブバーを追加
+show_bottom_nav()

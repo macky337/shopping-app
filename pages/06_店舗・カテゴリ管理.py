@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from utils.ui_utils import show_header, show_success_message, show_error_message
+from utils.ui_utils import show_header, show_success_message, show_error_message, show_hamburger_menu, show_bottom_nav
 from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_stores, get_categories, create_store, create_category
 
@@ -21,11 +21,8 @@ st.set_page_config(
 # ヘッダー表示
 show_header("店舗・カテゴリ管理 🏪")
 
-# サイドバー
-with st.sidebar:
-    st.header("メニュー")
-    if st.button("ホームに戻る"):
-        st.switch_page("pages/01_ホーム.py")
+# 折りたたみ式メニュー
+show_hamburger_menu()
 
 # メインコンテンツをタブで分ける
 tab1, tab2 = st.tabs(["店舗管理", "カテゴリ管理"])
@@ -175,3 +172,6 @@ with st.expander("カテゴリと店舗の管理について", expanded=False):
     - よく行く店舗は最初に登録しておきましょう
     - 自分だけのカテゴリを作成して、分類を細かくカスタマイズできます
     """)
+
+# ページ下部にタブバーを追加
+show_bottom_nav()

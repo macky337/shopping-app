@@ -8,6 +8,13 @@ from utils.db_utils import update_shopping_list_item, get_stores, get_categories
 from utils.db_utils import create_item, search_items, get_items_by_user, update_shopping_list
 from utils.db_utils import remove_item_from_shopping_list, delete_shopping_list_items
 
+# アイコンマッピング
+default_category_icons = {
+    "野菜": "🥦", "果物": "🍎", "飲料": "🥤", "菓子": "🍪",
+    # 必要に応じて追加
+}
+store_icon = "🏬"
+
 # 認証チェック
 if not check_authentication():
     st.stop()
@@ -100,24 +107,20 @@ def reset_item_selection():
 def get_selected_item_ids():
     return [item_id for item_id, selected in st.session_state['item_selection'].items() if selected]
 
-# チェックボックスの状態変更時に呼び出される関数
-def update_item_selection(item_id, value):
-    st.session_state['item_selection'][item_id] = value
-
-# カテゴリを自動設定する関数
-def update_category_from_item(item_id):
-    if not item_id:
-        return
-    
-    # ユーザーのアイテム一覧を取得
+# 既存商品選択時にカテゴリIDをセッションに設定する関数
+def update_category_from_item(item_id: int):
+    """
+    選択された既存商品のカテゴリIDを次のレンダリングサイクル用にセッションに保存します
+    """
+    # ユーザーの品目一覧を取得
     items = get_items_by_user(st.session_state.get('user_id'))
-    
-    # 選択したアイテムを探す
+    # 選択されたアイテムを検索
     selected_item = next((item for item in items if item.id == item_id), None)
-    
-    # 次回のレンダリングサイクルのためにカテゴリIDを保存
+    # カテゴリIDをセッションに保存
     if selected_item and selected_item.category_id:
-        st.session_state.selected_item_category_id = str(selected_item.category_id)
+        st.session_state['selected_item_category_id'] = str(selected_item.category_id)
+    else:
+        st.session_state['selected_item_category_id'] = None
 
 # サイドバー
 with st.sidebar:
@@ -236,6 +239,14 @@ with add_item_container:
         
         # 店舗選択
         stores = get_stores(user_id=st.session_state.get('user_id'))
+        # 重複する店舗名を除去
+        unique_stores = []
+        seen_names = set()
+        for s in stores:
+            if s.name not in seen_names:
+                unique_stores.append(s)
+                seen_names.add(s.name)
+        stores = unique_stores
         store_options = [("", "店舗を選択")] + [(str(s.id), s.name) for s in stores]
         store_id = st.selectbox(
             "購入予定店舗",
@@ -243,6 +254,8 @@ with add_item_container:
             format_func=lambda x: dict(store_options).get(x, "店舗を選択"),
             key="store_select"
         )
+        # 数量入力を追加
+        quantity = st.number_input("数量", min_value=1, step=1, value=1)
     
     # 追加ボタン
     submit_button = st.button("リストに追加")
@@ -287,22 +300,14 @@ with add_item_container:
                 shopping_list_id=shopping_list.id,
                 item_id=item_id,
                 store_id=int(store_id) if store_id else None,
-                planned_price=planned_price if planned_price > 0 else None
+                planned_price=planned_price if planned_price > 0 else None,
+                quantity=int(quantity)
             )
             
             if list_item:
                 show_success_message(f"{list_item.item.name if list_item.item else item_name}をリストに追加しました")
-                
-                # 反復処理の確認ダイアログを表示
-                st.info("反復処理を続行しますか?")
-                
-                col_yes, col_no = st.columns(2)
-                with col_yes:
-                    if st.button("はい", use_container_width=True):
-                        st.experimental_rerun()
-                with col_no:
-                    if st.button("いいえ", use_container_width=True):
-                        pass
+                # デフォルトで続行: 自動的に再レンダリング
+                st.rerun()
             else:
                 show_error_message("リストへの追加に失敗しました")
 
@@ -332,6 +337,14 @@ if st.session_state.get('editing_item_id'):
             with col2:
                 # 店舗選択
                 stores = get_stores(user_id=st.session_state.get('user_id'))
+                # 重複する店舗名を除去
+                unique_stores = []
+                seen_names = set()
+                for s in stores:
+                    if s.name not in seen_names:
+                        unique_stores.append(s)
+                        seen_names.add(s.name)
+                stores = unique_stores
                 store_options = [("", "店舗を選択")] + [(str(s.id), s.name) for s in stores]
                 
                 # 現在の店舗を選択
@@ -422,6 +435,14 @@ if st.session_state.get('show_batch_actions', False):
         elif batch_action == "店舗変更":
             # 店舗選択
             stores = get_stores(user_id=st.session_state.get('user_id'))
+            # 重複する店舗名を除去
+            unique_stores = []
+            seen_names = set()
+            for s in stores:
+                if s.name not in seen_names:
+                    unique_stores.append(s)
+                    seen_names.add(s.name)
+            stores = unique_stores
             store_options = [("", "店舗を選択")] + [(str(s.id), s.name) for s in stores]
             batch_store_id = st.selectbox(
                 "新しい購入予定店舗",
@@ -459,6 +480,8 @@ if st.session_state.get('show_batch_actions', False):
 items = get_shopping_list_items(shopping_list.id)
 
 if items:
+    # 元の数量を記録
+    original_quantities = {item.id: item.quantity if item.quantity else 1 for item in items}
     # アイテムデータをDataFrameに変換
     item_data = []
     
@@ -511,7 +534,8 @@ if items:
             ),
             "数量": st.column_config.NumberColumn(
                 "数量",
-                disabled=True
+                disabled=False,
+                help="数量を直接編集できます"
             ),
             "予定金額": st.column_config.NumberColumn(
                 "予定金額",
@@ -540,6 +564,19 @@ if items:
         is_selected = row["選択"]
         if st.session_state['item_selection'].get(item_id) != is_selected:
             st.session_state['item_selection'][item_id] = is_selected
+    
+    # 数量変更をデータベースに反映
+    for _, row in edited_df.iterrows():
+        item_id = row["ID"]
+        new_qty = row["数量"]
+        old_qty = original_quantities.get(item_id)
+        if new_qty != old_qty:
+            updated = update_shopping_list_item(
+                item_id=item_id,
+                quantity=int(new_qty)
+            )
+            if updated:
+                show_success_message(f"{updated.item.name if updated.item else ''} の数量を{new_qty}に更新しました")
     
     # アイテム操作用のボタン
     for item in items:

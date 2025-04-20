@@ -182,13 +182,13 @@ with tab3:
         purchase_data = []
         for purchase in purchases:
             purchase_data.append({
-                "日付": purchase.purchased_at.strftime("%Y/%m/%d"),
-                "商品名": purchase.item_name,
-                "カテゴリ": purchase.category_name or "未分類",
-                "店舗名": purchase.store_name or "未指定",
-                "単価": purchase.actual_price,
-                "数量": purchase.quantity,
-                "合計": purchase.actual_price * purchase.quantity
+                "日付": purchase["purchased_at"].strftime("%Y/%m/%d"),
+                "商品名": purchase["item_name"],
+                "カテゴリ": purchase.get("category_name", "未分類"),
+                "店舗名": purchase.get("store_name", "未指定"),
+                "単価": purchase["actual_price"],
+                "数量": purchase["quantity"],
+                "合計": purchase["total"]
             })
         
         # DataFrameに変換

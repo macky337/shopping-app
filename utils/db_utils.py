@@ -820,7 +820,7 @@ def get_category_spending(user_id: int, start_date: Optional[datetime.datetime] 
         for row in result:
             category_spending.append({
                 "category": row.category,
-                "amount": float(row.total_amount)
+                "total_spending": float(row.total_amount)
             })
             
         return category_spending
@@ -869,7 +869,7 @@ def get_store_spending(user_id: int, start_date: Optional[datetime.datetime] = N
         for row in result:
             store_spending.append({
                 "store": row.store,
-                "amount": float(row.total_amount)
+                "total_spending": float(row.total_amount)
             })
             
         return store_spending

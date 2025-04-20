@@ -78,13 +78,3 @@ st.divider()
 st.caption("© 2025 買い物アプリ")
 today = datetime.date.today()
 st.caption(f"今日の日付: {today.strftime('%Y年%m月%d日')}")
-
-if __name__ == "__main__":
-    # RailwayのPORT環境変数をSTREAMLITに反映
-    os.environ["STREAMLIT_SERVER_PORT"] = os.getenv("PORT", "8501")
-    os.environ["STREAMLIT_SERVER_HEADLESS"] = "true"
-    os.environ["STREAMLIT_SERVER_ENABLECORS"] = "false"
-    # Streamlit CLIから起動
-    import streamlit.web.cli as stcli
-    sys.argv = ["streamlit", "run", "app.py"]
-    sys.exit(stcli.main())

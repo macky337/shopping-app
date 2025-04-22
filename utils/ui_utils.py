@@ -432,17 +432,21 @@ def show_bottom_nav():
     # Streamlitのカラムでボタンを横並び
     cols = st.columns(4)
     with cols[0]:
-        if st.button('🏠\nホーム', key='nav_home', use_container_width=True):
+        if st.button('ホーム', key='nav_home', use_container_width=True, help='ホーム'):
             st.switch_page('pages/01_ホーム.py')
+        st.markdown('<div style="text-align:center;font-size:22px;">🏠</div><div style="text-align:center;">ホーム</div>', unsafe_allow_html=True)
     with cols[1]:
-        if st.button('📋\nリスト', key='nav_list', use_container_width=True):
+        if st.button('リスト', key='nav_list', use_container_width=True, help='リスト'):
             st.switch_page('pages/02_リスト編集.py')
+        st.markdown('<div style="text-align:center;font-size:22px;">📋</div><div style="text-align:center;">リスト</div>', unsafe_allow_html=True)
     with cols[2]:
-        if st.button('📊\n分析', key='nav_analysis', use_container_width=True):
+        if st.button('分析', key='nav_analysis', use_container_width=True, help='分析'):
             st.switch_page('pages/04_支出分析.py')
+        st.markdown('<div style="text-align:center;font-size:22px;">📊</div><div style="text-align:center;">分析</div>', unsafe_allow_html=True)
     with cols[3]:
-        if st.button('⚙️\n設定', key='nav_settings', use_container_width=True):
+        if st.button('設定', key='nav_settings', use_container_width=True, help='設定'):
             st.switch_page('pages/06_店舗・カテゴリ管理.py')
+        st.markdown('<div style="text-align:center;font-size:22px;">⚙️</div><div style="text-align:center;">設定</div>', unsafe_allow_html=True)
 
 # カテゴリ関連
 def get_category_options():

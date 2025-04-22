@@ -225,6 +225,17 @@ with tab3:
         df_daily = df_daily.sort_values('日付')
         df_daily['日付'] = df_daily['日付'].dt.strftime('%Y/%m/%d')
         
+        # 日ごとの合計額をテーブル表示
+        st.dataframe(
+            df_daily,
+            column_config={
+                "日付": st.column_config.TextColumn("日付"),
+                "合計": st.column_config.NumberColumn("合計", format="¥%d"),
+            },
+            hide_index=True,
+            use_container_width=True
+        )
+
         # グラフ表示
         chart = alt.Chart(df_daily).mark_line(point=True).encode(
             x=alt.X('日付:N', title='日付', sort=None),

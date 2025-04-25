@@ -335,6 +335,14 @@ def show_connection_indicator():
     }
     .healthy   { color: #20d96b !important; }
     .unhealthy { color: #ff5454 !important; }
+
+    /* ───── スマホ幅（600px 以下）のときだけ左寄せ ───── */
+    @media (max-width: 600px){
+        .connection-indicator{
+            margin: 10px 0 0 0; /* ← 左寄せ (右側 auto ではなく 0) */
+            max-width: 100%;      /* 横幅いっぱいに           */
+        }
+    }
     </style>
     """
     # CSSを1回だけ注入

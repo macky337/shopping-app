@@ -77,6 +77,9 @@ with tab2:
 show_connection_indicator()
 # フッター情報
 st.divider()
-st.caption("© 2025 買い物アプリ")
-today = datetime.date.today()
-st.caption(f"今日の日付: {today.strftime('%Y年%m月%d日')}")
+col1, col2 = st.columns(2)
+with col1:
+    st.caption("© 2025 買い物アプリ")
+with col2:
+    today = datetime.date.today()
+    st.caption(f"今日の日付: {today.strftime('%Y年%m月%d日')}")

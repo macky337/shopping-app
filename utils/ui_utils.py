@@ -313,45 +313,41 @@ def show_db_status():
 # データベース接続インジケータを右下に表示
 def show_connection_indicator():
     """データベース接続状態、バージョン情報、最終更新日を右下に表示する"""
-    # データベース接続状態を取得
-    db_status = get_db_health_check()
-    
-    # 右下に固定表示するためのスタイル
+    # 新しい CSS の定義（常に透過・境界線なし・色継承）
     indicator_style = """
     <style>
-        .connection-indicator {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background-color: rgba(240, 240, 240, 0.9);
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-            font-size: 0.8em;
-            max-width: 300px;
-        }
-        .healthy {
-            color: green;
-        }
-        .unhealthy {
-            color: red;
-        }
-        .app-info {
-            margin-top: 5px;
-            border-top: 1px solid #ddd;
-            padding-top: 5px;
-        }
+    .connection-indicator{
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: inherit;
+        font-size: 0.8em;
+        max-width: 300px;
+        margin: 10px 16px 0 auto;
+        padding: 0;
+        line-height: 1.4;
+    }
+    .connection-indicator .app-info{
+        margin-top: 6px;
+        border-top: 1px solid currentColor;
+        opacity: .3;
+        padding-top: 6px;
+    }
+    .healthy   { color: #20d96b !important; }
+    .unhealthy { color: #ff5454 !important; }
     </style>
     """
-    
-    # 接続状態に応じたクラス
+    # CSSを1回だけ注入
+    if "indicator_css" not in st.session_state:
+        st.markdown(indicator_style, unsafe_allow_html=True)
+        st.session_state["indicator_css"] = True
+
+    # データベース接続状態を取得
+    db_status = get_db_health_check()
     status_class = "healthy" if db_status['status'] == 'healthy' else "unhealthy"
     status_icon = "✅" if db_status['status'] == 'healthy' else "❌"
-    
-    # HTMLの構築
+    # HTMLの構築（スタイルは既に注入済み）
     html = f"""
-    {indicator_style}
     <div class="connection-indicator">
         <div>
             <span class="{status_class}">{status_icon} DB接続: {db_status['status']}</span>
@@ -365,8 +361,6 @@ def show_connection_indicator():
         </div>
     </div>
     """
-    
-    # HTMLを表示
     st.markdown(html, unsafe_allow_html=True)
 
 def show_hamburger_menu():

@@ -73,8 +73,6 @@ with tab2:
                     # 登録失敗
                     show_error_message("このメールアドレスは既に登録されています")
 
-# 接続インジケータ表示
-show_connection_indicator()
 # フッター情報
 st.divider()
 col1, col2 = st.columns(2)
@@ -83,3 +81,5 @@ with col1:
 with col2:
     today = datetime.date.today()
     st.caption(f"今日の日付: {today.strftime('%Y年%m月%d日')}")
+# フッター内に接続インジケータを表示
+show_connection_indicator()

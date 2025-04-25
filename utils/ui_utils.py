@@ -344,7 +344,18 @@ def show_connection_indicator():
         }
     </style>
     """
-    
+    # モバイル表示時も右下に固定できるようにCSSを追加
+    st.markdown('''
+    <style>
+    .connection-indicator {
+        position: fixed !important;
+        bottom: 16px !important;
+        right: 16px !important;
+        z-index: 10000 !important;
+        margin: 0;
+    }
+    </style>
+    ''', unsafe_allow_html=True)
     # 接続状態に応じたクラス
     status_class = "healthy" if db_status['status'] == 'healthy' else "unhealthy"
     status_icon = "✅" if db_status['status'] == 'healthy' else "❌"

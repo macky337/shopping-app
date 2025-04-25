@@ -145,17 +145,26 @@ with add_item_container:
             category_options = ["すべてのカテゴリ"] + [c.name for c in categories]
             if 'filter_category' not in st.session_state:
                 st.session_state['filter_category'] = "すべてのカテゴリ"
-            # カテゴリ選択を更新
+            # フィルタ変更時に既存商品の選択をクリアする
+            def on_filter_category_change():
+                st.session_state.pop('select_existing_item', None)
+                st.session_state['selected_item_id'] = None
             selected_category = st.selectbox(
                 "カテゴリで絞り込み", 
                 category_options, 
-                key="filter_category"
+                key="filter_category",
+                on_change=on_filter_category_change
             )
 
             # カテゴリIDを取得
             selected_category_id = None
             if selected_category != "すべてのカテゴリ":
                 selected_category_id = next((c.id for c in categories if c.name == selected_category), None)
+                if selected_category_id is not None:
+                    try:
+                        selected_category_id = int(selected_category_id)
+                    except Exception:
+                        selected_category_id = None
 
             # DBレベルでカテゴリで絞り込む
             items = get_items_by_user(st.session_state.get('user_id'), category_id=selected_category_id)
@@ -169,16 +178,14 @@ with add_item_container:
                 selection_label = "商品を選択"
                 if selected_category != "すべてのカテゴリ":
                     selection_label = f"商品を選択 ({selected_category}のみ表示)"
-                # カテゴリID を用いて key をユニーク化
-                key_suffix = selected_category_id if selected_category_id is not None else 'all'
-                select_item_key = f"select_existing_item_{key_suffix}"
+                # 選択用selectboxのキーを固定
+                select_item_key = 'select_existing_item'
                 if len(item_options) > 0:
                     selected_item_id = st.selectbox(
                         selection_label, 
                         options=[id for id, _ in item_options],
                         format_func=lambda x: dict(item_options).get(x, ""),
-                        key=select_item_key,
-                        index=0
+                        key=select_item_key
                     )
                 else:
                     st.info("選択したカテゴリに商品がありません")

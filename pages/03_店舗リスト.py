@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.ui_utils import show_header, show_success_message, show_error_message, show_hamburger_menu, show_bottom_nav
-from utils.ui_utils import check_authentication, show_connection_indicator
+from utils.ui_utils import check_authentication, show_connection_indicator, patch_dark_background
 from utils.db_utils import get_shopping_list, get_shopping_list_items, update_shopping_list_item
 from utils.db_utils import get_stores, record_purchase
 
@@ -22,6 +22,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+patch_dark_background()
 
 
 # リスト情報の取得
@@ -114,10 +115,8 @@ if list_items:
                         
                         with col3:
                             # 予定金額
-                            if item.planned_price:
-                                st.write(f"¥{item.planned_price * item.quantity:,.0f}")
-                            else:
-                                st.write("価格未設定")
+                            planned_price = item.planned_price if item.planned_price is not None else 0
+                            st.write(f"¥{planned_price * (item.quantity if item.quantity is not None else 0):,.0f}")
                         
                         with col4:
                             # 購入処理ボタン
@@ -130,14 +129,14 @@ if list_items:
                                 with st.popover("購入金額を記録"):
                                     actual_price = st.number_input(
                                         "実際の金額", 
-                                        value=float(item.planned_price) if item.planned_price else 0,
+                                        value=float(item.planned_price) if item.planned_price is not None else 0,
                                         step=1.0,
                                         key=f"price_{item.id}"
                                     )
                                     
                                     quantity = st.number_input(
                                         "数量",
-                                        value=item.quantity,
+                                        value=item.quantity if item.quantity is not None else 1,
                                         min_value=1,
                                         step=1,
                                         key=f"qty_{item.id}"
@@ -171,3 +170,6 @@ else:
 
 # ページ下部にタブバーを追加
 show_bottom_nav()
+
+# 店舗名入力フィールド
+st.text_input("店舗名", placeholder="店舗名を入力してください", label_visibility="visible")

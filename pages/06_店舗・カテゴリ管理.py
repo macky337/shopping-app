@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from utils.ui_utils import show_header, show_success_message, show_error_message, show_hamburger_menu, show_bottom_nav
-from utils.ui_utils import check_authentication, show_connection_indicator
+from utils.ui_utils import check_authentication, show_connection_indicator, patch_dark_background
 from utils.db_utils import get_stores, get_categories, create_store, create_category
 
 # 認証チェック
@@ -16,6 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+patch_dark_background()
 
 
 # ヘッダー表示
@@ -92,6 +93,64 @@ with tab1:
                 else:
                     show_error_message("店舗の登録に失敗しました")
 
+    # 重複店舗クリーンアップセクションを追加
+    with st.expander("🧹 重複店舗のクリーンアップ", expanded=False):
+        st.write("同じ名前の店舗が複数登録されている場合、最も古い店舗を残して他を削除します。")
+        st.warning("この操作は元に戻せません。実行前にデータのバックアップをおすすめします。")
+        
+        if st.button("重複店舗をチェック", key="check_duplicate_stores"):
+            # 重複チェック（削除はまだしない）
+            from utils.db_utils import get_db_session
+            from sqlalchemy import func
+            from utils.models import Store
+            
+            session = get_db_session()
+            duplicate_stores = {}
+            
+            try:
+                # 重複店舗を検出
+                duplicates = session.query(
+                    Store.name, 
+                    func.count(Store.id).label('count')
+                ).filter(
+                    Store.user_id == st.session_state['user_id']
+                ).group_by(
+                    Store.name
+                ).having(
+                    func.count(Store.id) > 1
+                ).all()
+                
+                if duplicates:
+                    st.warning(f"{len(duplicates)}種類の店舗に重複があります")
+                    
+                    for name, count in duplicates:
+                        st.info(f"「{name}」が{count}件重複しています")
+                        stores = session.query(Store).filter(
+                            Store.name == name,
+                            Store.user_id == st.session_state['user_id']
+                        ).order_by(Store.id).all()
+                        
+                        duplicate_stores[name] = [s.id for s in stores]
+                    
+                    # セッションに重複店舗情報を保存
+                    st.session_state['duplicate_stores'] = duplicate_stores
+                    
+                    # クリーンアップボタンを表示
+                    if st.button("重複店舗をクリーンアップ", key="clean_duplicate_stores"):
+                        from utils.db_utils import clean_duplicate_stores
+                        result = clean_duplicate_stores(user_id=st.session_state['user_id'])
+                        
+                        if "error" in result:
+                            st.error(f"クリーンアップ中にエラーが発生しました: {result['error']}")
+                        else:
+                            st.success(f"{result['cleaned']}件の重複店舗を削除しました。{result['remaining']}件の店舗が残っています。")
+                            # ページを再読み込み
+                            st.rerun()
+                else:
+                    st.success("重複している店舗はありません！")
+            finally:
+                session.close()
+
 # カテゴリ管理タブ
 with tab2:
     st.subheader("カテゴリの登録・管理")
@@ -135,7 +194,7 @@ with tab2:
     # 新規カテゴリ登録フォーム
     st.write("### 新しいカテゴリを登録")
     with st.form("category_form"):
-        category_name = st.text_input("カテゴリ名", placeholder="野菜、肉類、日用品など")
+        category_name = st.text_input("カテゴリ名", placeholder="カテゴリ名を入力してください", label_visibility="visible")
         submit_button = st.form_submit_button("登録する")
         
         if submit_button:

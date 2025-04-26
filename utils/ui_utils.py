@@ -389,17 +389,19 @@ def show_hamburger_menu():
 
 def show_bottom_nav():
     """画面下部に常時固定されるナビゲーション（st.button使用・認証維持・依存なし）"""
-    st.markdown('''
+    # タブバーのダークテーマ対応CSS
+    B_NAV_CSS = """
     <style>
+    /* 下部タブバーをダークテーマに合わせる ------------------------- */
     .fixed-bottom-nav {
         position: fixed;
         left: 0;
         bottom: 0;
         width: 100vw;
-        background: #f0f2f6;
-        border-top: 1px solid #ccc;
+        background: #0e1117 !important;  /* ← 黒系に変更 */
+        border-top: 1px solid #333 !important;
         z-index: 9999;
-        box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+        box-shadow: 0 -2px 8px rgba(0,0,0,0.2);
         padding: 0 0;
     }
     .fixed-bottom-nav-inner {
@@ -416,7 +418,7 @@ def show_bottom_nav():
         background: none;
         border: none;
         font-size: 13px;
-        color: #333;
+        color: #fff !important;  /* 文字色を白に */
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -425,6 +427,14 @@ def show_bottom_nav():
     }
     .bottom-nav-btn .nav-icon { font-size: 22px; }
     </style>
+    """
+    
+    # CSSを一度だけ注入
+    if "_patched_bottom_nav" not in st.session_state:
+        st.markdown(B_NAV_CSS, unsafe_allow_html=True)
+        st.session_state["_patched_bottom_nav"] = True
+        
+    st.markdown('''
     <div class="fixed-bottom-nav">
       <div class="fixed-bottom-nav-inner" id="st-bottom-nav"></div>
     </div>
@@ -439,19 +449,19 @@ def show_bottom_nav():
     with cols[0]:
         if st.button('ホーム', key='nav_home', use_container_width=True, help='ホーム'):
             st.switch_page('pages/01_ホーム.py')
-        st.markdown('<div style="text-align:center;font-size:22px;">🏠</div><div style="text-align:center;">ホーム</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;font-size:22px;">🏠</div><div style="text-align:center;color:#fff;">ホーム</div>', unsafe_allow_html=True)
     with cols[1]:
         if st.button('リスト', key='nav_list', use_container_width=True, help='リスト'):
             st.switch_page('pages/02_リスト編集.py')
-        st.markdown('<div style="text-align:center;font-size:22px;">📋</div><div style="text-align:center;">リスト</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;font-size:22px;">📋</div><div style="text-align:center;color:#fff;">リスト</div>', unsafe_allow_html=True)
     with cols[2]:
         if st.button('分析', key='nav_analysis', use_container_width=True, help='分析'):
             st.switch_page('pages/04_支出分析.py')
-        st.markdown('<div style="text-align:center;font-size:22px;">📊</div><div style="text-align:center;">分析</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;font-size:22px;">📊</div><div style="text-align:center;color:#fff;">分析</div>', unsafe_allow_html=True)
     with cols[3]:
         if st.button('設定', key='nav_settings', use_container_width=True, help='設定'):
             st.switch_page('pages/06_店舗・カテゴリ管理.py')
-        st.markdown('<div style="text-align:center;font-size:22px;">⚙️</div><div style="text-align:center;">設定</div>', unsafe_allow_html=True)
+        st.markdown('<div style="text-align:center;font-size:22px;">⚙️</div><div style="text-align:center;color:#fff;">設定</div>', unsafe_allow_html=True)
 
 # カテゴリ関連
 def get_category_options():
@@ -468,3 +478,40 @@ def get_store_type_options():
         "スーパー", "コンビニ", "ドラッグストア", "ホームセンター", "デパート", 
         "ディスカウントストア", "専門店", "オンラインショップ", "その他"
     ]
+
+def patch_dark_background(bg: str = "#0e1117") -> None:
+    """白帯の原因 stSpacer を完全に除去。全ページで1回だけ呼び出し。"""
+    if st.session_state.get("_patched_bg"):          # 二重注入を防ぐ
+        return
+
+    st.markdown(f"""
+    <style>
+    /* 1) テーマ変数を黒にそろえる ----------------------------- */
+    :root {{
+        --primary-background-color:   {bg};
+        --secondary-background-color: {bg};
+    }}
+
+    /* 2) stSpacer を「背景＝透明」＋「高さ＝0」で潰す ---------- */
+    [data-testid="stSpacer"] {{
+        background: transparent !important;
+        height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: none !important;   /* ← 決定打 */
+    }}
+
+    /* 3) ページ全体も保険で同色に ----------------------------- */
+    html, body, .stApp {{
+        background: {bg} !important;
+    }}
+
+    /* 4) main ブロックを画面高まで伸ばす --------------------- */
+    [data-testid="stAppViewContainer"] > .main {{
+        min-height: 100vh;
+        padding-bottom: 0 !important;   /* 余白カット */
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.session_state["_patched_bg"] = True

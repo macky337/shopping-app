@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import datetime
-from utils.ui_utils import show_header, show_shopping_list_summary, check_authentication, logout, show_hamburger_menu, show_bottom_nav
+from utils.ui_utils import show_header, show_shopping_list_summary, check_authentication, logout, show_hamburger_menu, show_bottom_nav, patch_dark_background
 from utils.db_utils import get_user_by_id, get_shopping_lists, create_shopping_list
 
 # 認証チェック
@@ -22,6 +22,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# 白帯問題を解消（一度だけ呼び出す）
+patch_dark_background()
+
 # ヘッダー表示
 show_header(f"ようこそ、{user.name}さん")
 
@@ -32,7 +35,7 @@ with st.sidebar:
     # リストの新規作成フォーム
     st.subheader("買い物リストを作成")
     with st.form("create_list_form"):
-        list_name = st.text_input("リスト名", placeholder="〇月×日の買い物", 
+        list_name = st.text_input("リスト名", placeholder="リスト名を入力してください", label_visibility="visible", 
                                   value=f"{datetime.now().strftime('%m月%d日')}の買い物")
         memo = st.text_area("メモ（任意）", placeholder="予算や買い物のポイントなど", max_chars=200)
         create_button = st.form_submit_button("作成")

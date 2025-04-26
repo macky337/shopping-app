@@ -294,23 +294,130 @@ def get_stores(user_id: Optional[int] = None) -> List[Store]:
         logger.error(f"店舗一覧取得エラー: {e}")
         return []
 
-def create_store(name: str, category: Optional[str] = None, user_id: Optional[int] = None) -> Optional[Store]:
-    """新しい店舗を作成"""
+def create_store(user_id, name, address=None, store_type=None, check_duplicate=True):
+    """
+    新しい店舗を作成する
+    
+    Args:
+        user_id (int): ユーザーID
+        name (str): 店舗名
+        address (str, optional): 住所
+        store_type (str, optional): 店舗種別
+        check_duplicate (bool): 重複チェックを行うかどうか
+        
+    Returns:
+        Store: 作成された店舗オブジェクト、または既存の店舗（重複時）
+    """
+    from .models import Store
+    
     session = get_db_session()
     try:
+        # 重複チェック（同じユーザーの同じ名前の店舗を検索）
+        if check_duplicate:
+            existing_store = session.query(Store).filter(
+                Store.user_id == user_id,
+                Store.name == name
+            ).first()
+            
+            if existing_store:
+                return existing_store
+        
+        # 新しい店舗を作成
         store = Store(
+            user_id=user_id,
             name=name,
-            category=category,
-            user_id=user_id
+            address=address,
+            type=store_type
         )
         session.add(store)
         session.commit()
-        session.refresh(store)
         return store
     except Exception as e:
-        logger.error(f"店舗作成エラー: {e}")
         session.rollback()
-        return None
+        raise e
+    finally:
+        session.close()
+
+def clean_duplicate_stores(user_id=None):
+    """
+    重複している店舗を検出して削除する
+    同じ名前の店舗が複数ある場合、最も古いものを残して他を削除
+    
+    Args:
+        user_id (int, optional): 特定ユーザーの店舗のみ対象にする場合に指定
+    
+    Returns:
+        dict: 処理結果の情報（削除数、残存数など）
+    """
+    from sqlalchemy import func
+    from .models import Store
+    
+    session = get_db_session()
+    result = {
+        "cleaned": 0,
+        "remaining": 0,
+        "duplicates": {}
+    }
+    
+    try:
+        # ユーザーごとに同じ名前の店舗をカウント
+        query = session.query(
+            Store.name, 
+            Store.user_id, 
+            func.count(Store.id).label('count')
+        ).group_by(
+            Store.name, 
+            Store.user_id
+        ).having(
+            func.count(Store.id) > 1
+        )
+        
+        if user_id:
+            query = query.filter(Store.user_id == user_id)
+        
+        duplicate_groups = query.all()
+        
+        # 重複している店舗ごとに処理
+        for name, user_id, count in duplicate_groups:
+            # 同じ名前の店舗を取得（IDの昇順）
+            stores = session.query(Store).filter(
+                Store.name == name,
+                Store.user_id == user_id
+            ).order_by(Store.id).all()
+            
+            # 最初の店舗を残し、残りを削除対象にする
+            keep_store = stores[0]
+            duplicates = stores[1:]
+            
+            # 重複店舗のIDを記録
+            result["duplicates"][name] = {
+                "kept_id": keep_store.id,
+                "deleted_ids": [s.id for s in duplicates],
+                "count": count
+            }
+            
+            # 重複店舗を削除
+            for store in duplicates:
+                # 関連する買い物リストの店舗IDを更新
+                # (この実装は実際のモデル構造に応じて調整が必要)
+                session.query(ShoppingListItem).filter(
+                    ShoppingListItem.store_id == store.id
+                ).update({"store_id": keep_store.id})
+                
+                # 店舗を削除
+                session.delete(store)
+                result["cleaned"] += 1
+        
+        # 残りの店舗数をカウント
+        result["remaining"] = session.query(Store).count()
+        
+        session.commit()
+        return result
+    except Exception as e:
+        session.rollback()
+        return {"error": str(e)}
+    finally:
+        session.close()
 
 # アイテム関連の関数
 def get_items_by_user(user_id: int, category_id: Optional[int] = None) -> List[Item]:
@@ -944,6 +1051,25 @@ def update_purchase_date(purchase_id: int, new_date: datetime.datetime) -> bool:
         logger.error(f"購入日付更新エラー: {e}")
         session.rollback()
         return False
+
+def get_latest_planned_price(user_id: int, item_id: int) -> Optional[float]:
+    """指定ユーザー・商品IDの直近のplanned_priceを取得"""
+    session = get_db_session()
+    try:
+        item = (
+            session.query(ShoppingListItem)
+            .join(ShoppingList, ShoppingListItem.shopping_list_id == ShoppingList.id)
+            .filter(ShoppingList.user_id == user_id)
+            .filter(ShoppingListItem.item_id == item_id)
+            .order_by(ShoppingListItem.created_at.desc())
+            .first()
+        )
+        if item and item.planned_price is not None:
+            return float(item.planned_price)
+        return None
+    except Exception as e:
+        logger.error(f"直近予定金額取得エラー: {e}")
+        return None
 
 # データベース初期化を実行
 init_db()

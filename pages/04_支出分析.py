@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from utils.ui_utils import show_header, show_spending_chart
 from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_user_purchases, get_category_spending, get_store_spending, update_purchase_date
+from utils.ui_utils import patch_dark_background
 
 # 認証チェック
 if not check_authentication():
@@ -17,6 +18,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+patch_dark_background()
 
 
 # ヘッダー表示
@@ -187,9 +190,9 @@ with tab3:
                 "商品名": purchase["item_name"],
                 "カテゴリ": purchase.get("category_name", "未分類"),
                 "店舗名": purchase.get("store_name", "未指定"),
-                "単価": purchase["actual_price"],
-                "数量": purchase["quantity"],
-                "合計": purchase["total"],
+                "単価": purchase["actual_price"] if purchase["actual_price"] is not None else 0,
+                "数量": purchase["quantity"] if purchase["quantity"] is not None else 0,
+                "合計": purchase["total"] if purchase["total"] is not None else (purchase["actual_price"] or 0) * (purchase["quantity"] or 0),
                 "purchased_at": purchase["purchased_at"]
             })
         

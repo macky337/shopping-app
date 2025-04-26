@@ -20,7 +20,7 @@ import os
 
 if st.sidebar.button("全セッションをクリア"):
     st.session_state.clear()
-    st.experimental_rerun()
+    st.rerun()
 
 # セッション状態の初期化
 init_session_state()
@@ -35,4 +35,24 @@ if not st.session_state.get('user_id'):
 st.switch_page("pages/01_ホーム.py")
 
 # フッターやその他UIは各ページで表示します
+
+dark_bg = "#0e1117"
+
+css = f"""
+<style>
+:root {{
+    --primary-background-color:   {dark_bg};
+    --secondary-background-color: {dark_bg};
+}}
+.stSpacer, div[style*="position: sticky"][style*="bottom"] {{
+    background: {dark_bg} !important;
+}}
+html, body, .stApp {{
+    background: {dark_bg} !important;
+    min-height: 100vh; /* ページ全体をカバー */
+}}
+</style>
+"""
+
+st.markdown(css, unsafe_allow_html=True)
 

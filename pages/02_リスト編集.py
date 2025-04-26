@@ -7,6 +7,7 @@ from utils.db_utils import get_shopping_list, get_shopping_list_items, add_item_
 from utils.db_utils import update_shopping_list_item, get_stores, get_categories
 from utils.db_utils import create_item, search_items, get_items_by_user, update_shopping_list
 from utils.db_utils import remove_item_from_shopping_list, delete_shopping_list_items
+from utils.ui_utils import patch_dark_background
 
 # アイコンマッピング
 default_category_icons = {
@@ -33,6 +34,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+patch_dark_background()
+
 
 
 # リスト情報の取得
@@ -54,7 +57,7 @@ with st.expander("リスト情報を編集", expanded=False):
         col1, col2 = st.columns(2)
         
         with col1:
-            new_name = st.text_input("リスト名", value=shopping_list.name)
+            new_name = st.text_input("リスト名", placeholder="リスト名を入力してください", label_visibility="visible")
         
         with col2:
             new_date = st.date_input("日付", value=shopping_list.date)
@@ -117,7 +120,7 @@ def update_category_from_item(item_id: int):
     # 選択されたアイテムを検索
     selected_item = next((item for item in items if item.id == item_id), None)
     # カテゴリIDをセッションに保存
-    if selected_item and selected_item.category_id:
+    if (selected_item and selected_item.category_id):
         st.session_state['selected_item_category_id'] = str(selected_item.category_id)
     else:
         st.session_state['selected_item_category_id'] = None
@@ -227,14 +230,9 @@ with add_item_container:
         # 使用後にクリア
         if st.session_state.get('selected_item_category_id'):
             st.session_state.selected_item_category_id = None
-        
-    with col2:
-        # 予定金額
-        planned_price = st.number_input("予定金額", min_value=0, step=10)
-        
+
         # 店舗選択
         stores = get_stores(user_id=st.session_state.get('user_id'))
-        # 重複する店舗名を除去
         unique_stores = []
         seen_names = set()
         for s in stores:
@@ -247,8 +245,22 @@ with add_item_container:
             "購入予定店舗",
             options=[id for id, _ in store_options],
             format_func=lambda x: dict(store_options).get(x, "店舗を選択"),
-            key="store_select"
+            key="add_store_select"
         )
+        
+    with col2:
+        # 予定金額
+        # 既存商品選択時は前回金額をデフォルトに
+        planned_price_default = 0
+        if input_method == "既存の商品から選択" and st.session_state.get('selected_item_id'):
+            from utils.db_utils import get_latest_planned_price
+            user_id = st.session_state.get('user_id')
+            item_id = int(st.session_state['selected_item_id'])
+            latest_price = get_latest_planned_price(user_id, item_id)
+            if (latest_price is not None):
+                planned_price_default = latest_price
+        planned_price = st.number_input("予定金額", min_value=0, step=10, value=int(planned_price_default))
+    
         # 数量入力を追加
         quantity = st.number_input("数量", min_value=1, step=1, value=1)
     
@@ -530,14 +542,17 @@ if items:
     
     df = pd.DataFrame(item_data)
     if "予定日" in df.columns:
-        df["予定日"] = pd.to_datetime(df["予定日"], errors="coerce").dt.date  # ここで日付型に変換
+        # 予定日のフォーマットを指定して警告を回避
+        df["予定日"] = pd.to_datetime(df["予定日"], format="%Y-%m-%d", errors="coerce")
+        # NaN/NaT値の表示を改善
+        df["予定日"] = df["予定日"].dt.date
 
     # チェックボックス列を追加したデータエディタを表示
     edited_df = st.data_editor(
         df,
         column_config={
             "選択": st.column_config.CheckboxColumn(
-                "選択",
+                "選択",  # ラベルを明示的に指定
                 help="チェックを入れて一括操作できます",
                 default=False,
             ),
@@ -585,13 +600,34 @@ if items:
         key="item_table"
     )
     
-    # チェックボックスの状態を更新
+    # ❶ まず差分を検知
+    selection_changed = (df["選択"] != edited_df["選択"]).any()
+
+    # ❷ session_state を先に更新
     for _, row in edited_df.iterrows():
+        st.session_state["item_selection"][row["ID"]] = row["選択"]
+
+    # ❸ その後に rerun（必要なら）
+    if selection_changed:
+        st.rerun()
+
+    # データエディタの再描画を条件付きで実行
+    if any(df["選択"] != edited_df["選択"]):
+        st.rerun()
+
+    # チェックボックスの状態を更新
+    for index, row in edited_df.iterrows():
         item_id = row["ID"]
         is_selected = row["選択"]
+        # 状態が変化した場合のみセッションを更新
         if st.session_state['item_selection'].get(item_id) != is_selected:
             st.session_state['item_selection'][item_id] = is_selected
-    
+
+    # データフレームの選択状態をセッション状態に同期
+    for item_id, is_selected in st.session_state['item_selection'].items():
+        if item_id in df["ID"].values:
+            df.loc[df["ID"] == item_id, "選択"] = is_selected
+
     # 数量変更と予定日変更をデータベースに反映
     for _, row in edited_df.iterrows():
         item_id = row["ID"]
@@ -604,10 +640,16 @@ if items:
             )
             if updated:
                 show_success_message(f"{updated.item.name if updated.item else ''} の数量を{new_qty}に更新しました")
-        # 予定日変更反映
+        
+        # 予定日変更反映 - NaT値のチェックを追加
         new_date = row.get("予定日")
         old_date = next((item.planned_date for item in items if item.id == item_id), None)
-        if new_date != old_date:
+        
+        # NaT値のチェック (pandas.NaTType は直接比較できないため、文字列変換で確認)
+        is_valid_date = new_date is not None and str(new_date) != "NaT" and pd.notna(new_date)
+        
+        # 有効な日付のみを更新
+        if is_valid_date and new_date != old_date:
             updated = update_shopping_list_item(
                 item_id=item_id,
                 planned_date=new_date

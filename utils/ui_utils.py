@@ -132,6 +132,7 @@ def show_login_screen():
     
     # ログイン画面のパフォーマンス改善のため、接続インジケータは一時非表示
     # show_connection_indicator()
+    show_bottom_nav()
 
 # 日付処理
 def format_date(date_obj, format="%Y年%m月%d日"):

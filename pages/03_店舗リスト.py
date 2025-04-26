@@ -72,7 +72,15 @@ if list_items:
             # 進捗バー
             st.caption(f"進捗: {checked_items}/{len(items)} アイテム")
             progress = checked_items / len(items) if len(items) > 0 else 0
-            st.progress(progress)
+            # 緑色のカスタムプログレスバー
+            bar_html = f'''
+            <div style="background-color:#e0e0e0;border-radius:8px;width:100%;height:22px;">
+                <div style="width:{progress*100:.1f}%;background-color:#4CAF50;height:100%;border-radius:8px;text-align:center;color:white;font-weight:bold;line-height:22px;">
+                    {progress*100:.1f}%
+                </div>
+            </div>
+            '''
+            st.markdown(bar_html, unsafe_allow_html=True)
             
             # アイテム一覧をカテゴリごとにグループ化
             categories = {}

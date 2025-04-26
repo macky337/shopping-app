@@ -29,8 +29,6 @@ init_session_state()
 
 if not st.session_state.get('user_id'):
     show_login_screen()
-    from utils.ui_utils import show_connection_indicator
-    show_connection_indicator()
     st.stop()
 
 # ログイン済みの場合はホームページへリダイレクト

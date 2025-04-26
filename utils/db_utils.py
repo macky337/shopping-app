@@ -147,8 +147,16 @@ def get_db_session():
 def close_db_session():
     """データベースセッションをクローズ"""
     if 'db_session' in st.session_state:
-        st.session_state['db_session'].close()
-        del st.session_state['db_session']
+        session = st.session_state['db_session']
+        try:
+            if session.is_active:
+                session.rollback()
+            session.close()
+        except Exception as e:
+            import logging
+            logging.warning(f"DBセッションのクローズ時に例外: {e}")
+        finally:
+            del st.session_state['db_session']
 
 # 認証関連の関数
 def hash_password(password: str) -> str:

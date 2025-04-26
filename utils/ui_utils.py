@@ -278,24 +278,25 @@ def show_price_history(history_items):
         st.plotly_chart(fig, use_container_width=True)
 
 def show_shopping_list_summary(shopping_list):
-    """買い物リストのサマリーを表示"""
-    # リストアイテムを取得
+    """買い物リストのサマリーを表示（緑色カスタム進捗バー）"""
     items = get_shopping_list_items(shopping_list.id)
-    
-    # 集計情報
     total_items = len(items)
     checked_items = sum(1 for item in items if item.checked)
     total_price = sum((item.planned_price or 0) * item.quantity for item in items)
-    
-    # 進捗率の計算
     progress_pct = 0
     if total_items > 0:
         progress_pct = checked_items / total_items
-    
-    # 表示
     st.caption(f"📊 予算: ¥{total_price:,.0f}")
     st.caption(f"✓ {checked_items}/{total_items} アイテム購入済")
-    st.progress(progress_pct)
+    # --- 緑色カスタム進捗バー ---
+    bar_width = int(progress_pct * 100)
+    bar_html = f'''
+    <div style="background:#e0e0e0;border-radius:8px;width:100%;height:18px;overflow:hidden;margin-bottom:4px;">
+      <div style="background:#20d96b;height:100%;width:{bar_width}%;transition:width 0.3s;border-radius:8px;"></div>
+    </div>
+    <div style="font-size:12px;color:#20d96b;font-weight:bold;text-align:right;">{int(progress_pct*100)}%</div>
+    '''
+    st.markdown(bar_html, unsafe_allow_html=True)
 
 def show_db_status():
     """データベース接続ステータスを表示"""

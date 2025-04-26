@@ -81,6 +81,16 @@ def init_db():
         Base.metadata.create_all(bind=engine)
         logger.info("データベース接続を初期化しました")
         
+        # PostgreSQL環境の場合、planned_dateカラムが存在しない場合は追加
+        if final_db_url.startswith('postgresql://'):
+            from sqlalchemy import inspect
+            inspector = inspect(engine)
+            columns = [col['name'] for col in inspector.get_columns('shopping_list_items')]
+            if 'planned_date' not in columns:
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE shopping_list_items ADD COLUMN planned_date DATE;"))
+                logger.info("shopping_list_itemsテーブルにplanned_dateカラムを追加しました")
+        
         # Railway PostgreSQL使用時のテスト接続
         if final_db_url.startswith('postgresql://'):
             try:
@@ -180,7 +190,7 @@ def register_user(email: str, password: str, name: str) -> Optional[User]:
     try:
         # メールアドレスの重複チェック
         existing_user = session.query(User).filter(User.email == email).first()
-        if existing_user:
+        if (existing_user):
             return None
             
         # 新規ユーザー作成
@@ -363,13 +373,15 @@ def get_shopping_lists(user_id: int, limit: int = 20) -> List[ShoppingList]:
     """ユーザーの買い物リスト一覧を取得"""
     session = get_db_session()
     try:
-        return session.query(ShoppingList)\
-            .filter(ShoppingList.user_id == user_id)\
-            .order_by(ShoppingList.date.desc())\
-            .limit(limit)\
+        return (
+            session.query(ShoppingList)
+            .filter(ShoppingList.user_id == user_id)
+            .order_by(ShoppingList.date.desc())
+            .limit(limit)
             .all()
+        )
     except Exception as e:
-        logger.error(f"買い物リスト取得エラー: {e}")
+        logger.error(f"買い物リスト一覧取得エラー: {e}")
         return []
 
 def get_shopping_list(list_id: int) -> Optional[ShoppingList]:
@@ -469,15 +481,16 @@ def update_shopping_list_item(
     checked: Optional[bool] = None,
     quantity: Optional[int] = None,
     store_id: Optional[int] = None,
-    planned_price: Optional[float] = None
+    planned_price: Optional[float] = None,
+    planned_date: Optional[datetime.date] = None
 ) -> Optional[ShoppingListItem]:
-    """買い物リストアイテムを更新（チェック状態、数量、店舗、価格）"""
+    """買い物リストアイテムを更新（チェック状態、数量、店舗、価格、予定日）"""
     session = get_db_session()
     try:
         list_item = session.query(ShoppingListItem).filter(ShoppingListItem.id == item_id).first()
         if not list_item:
             return None
-            
+        
         if checked is not None:
             list_item.checked = checked
         if quantity is not None:
@@ -486,7 +499,9 @@ def update_shopping_list_item(
             list_item.store_id = store_id
         if planned_price is not None:
             list_item.planned_price = planned_price
-            
+        if planned_date is not None:
+            list_item.planned_date = planned_date
+        
         session.commit()
         session.refresh(list_item)
         return list_item
@@ -906,6 +921,21 @@ def save_purchase(
         logger.error(f"購入履歴保存エラー: {e}")
         session.rollback()
         return None
+
+def update_purchase_date(purchase_id: int, new_date: datetime.datetime) -> bool:
+    """購入履歴の日付（purchased_at）を更新する"""
+    session = get_db_session()
+    try:
+        purchase = session.query(Purchase).filter(Purchase.id == purchase_id).first()
+        if not purchase:
+            return False
+        purchase.purchased_at = new_date
+        session.commit()
+        return True
+    except Exception as e:
+        logger.error(f"購入日付更新エラー: {e}")
+        session.rollback()
+        return False
 
 # データベース初期化を実行
 init_db()

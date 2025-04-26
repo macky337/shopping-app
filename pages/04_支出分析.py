@@ -4,7 +4,7 @@ import altair as alt
 from datetime import datetime, timedelta
 from utils.ui_utils import show_header, show_spending_chart
 from utils.ui_utils import check_authentication, show_connection_indicator
-from utils.db_utils import get_user_purchases, get_category_spending, get_store_spending
+from utils.db_utils import get_user_purchases, get_category_spending, get_store_spending, update_purchase_date
 
 # 認証チェック
 if not check_authentication():
@@ -182,13 +182,15 @@ with tab3:
         purchase_data = []
         for purchase in purchases:
             purchase_data.append({
+                "id": purchase["id"],
                 "日付": purchase["purchased_at"].strftime("%Y/%m/%d"),
                 "商品名": purchase["item_name"],
                 "カテゴリ": purchase.get("category_name", "未分類"),
                 "店舗名": purchase.get("store_name", "未指定"),
                 "単価": purchase["actual_price"],
                 "数量": purchase["quantity"],
-                "合計": purchase["total"]
+                "合計": purchase["total"],
+                "purchased_at": purchase["purchased_at"]
             })
         
         # DataFrameに変換
@@ -198,9 +200,26 @@ with tab3:
         total_amount = df["合計"].sum()
         st.metric("合計支出", f"¥{total_amount:,.0f}")
         
+        # 編集UI
+        st.write("### 日付編集")
+        for row in purchase_data:
+            with st.expander(f"{row['日付']} | {row['商品名']} | {row['店舗名']}"):
+                new_date = st.date_input(
+                    f"購入日付を編集（ID: {row['id']}）",
+                    value=row["purchased_at"].date(),
+                    key=f"date_input_{row['id']}"
+                )
+                if st.button("保存", key=f"save_btn_{row['id']}"):
+                    dt = datetime.combine(new_date, row["purchased_at"].time())
+                    success = update_purchase_date(row["id"], dt)
+                    if success:
+                        st.success("日付を更新しました。ページを再読み込みしてください。")
+                    else:
+                        st.error("日付の更新に失敗しました。")
+        
         # テーブル表示
         st.dataframe(
-            df,
+            df.drop(columns=["id", "purchased_at"]),
             column_config={
                 "日付": st.column_config.TextColumn("日付"),
                 "商品名": st.column_config.TextColumn("商品名"),

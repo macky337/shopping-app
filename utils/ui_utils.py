@@ -1,11 +1,7 @@
 import streamlit as st
-import pandas as pd
-import plotly.express as px
 from datetime import datetime
 import json
 import jwt
-import numpy as np
-import altair as alt
 # モデルクラスをインポート
 from .models import ShoppingList, Store, ShoppingListItem
 from .db_utils import get_shopping_list_items, get_db_health_check
@@ -41,6 +37,8 @@ def init_session_state():
 
 def check_authentication():
     """認証のチェック。未認証ならログイン画面を表示"""
+    # セッション状態を初期化してから認証チェック
+    init_session_state()
     if 'user_id' not in st.session_state or not st.session_state['user_id']:
         show_login_screen()
         return False
@@ -132,8 +130,8 @@ def show_login_screen():
                     else:
                         st.error("登録に失敗しました。すでに使われているメールアドレスかもしれません")
     
-    # ログイン画面にも接続インジケータを表示
-    show_connection_indicator()
+    # ログイン画面のパフォーマンス改善のため、接続インジケータは一時非表示
+    # show_connection_indicator()
 
 # 日付処理
 def format_date(date_obj, format="%Y年%m月%d日"):
@@ -210,6 +208,8 @@ def show_shopping_list_items(items: list[ShoppingListItem]):
 
 def show_spending_chart(spending_data, chart_type="bar"):
     """支出分析チャートの表示"""
+    import pandas as pd
+    import altair as alt
     if not spending_data:
         st.info("表示できるデータがありません")
         return
@@ -252,6 +252,8 @@ def show_spending_chart(spending_data, chart_type="bar"):
 
 def show_price_history(history_items):
     """価格履歴を表示する"""
+    import pandas as pd
+    import plotly.express as px
     if not history_items:
         st.info("価格履歴はありません")
         return

@@ -9,6 +9,10 @@ if not check_authentication():
 
 # ユーザー情報取得
 user = get_user_by_id(st.session_state['user_id'])
+if user is None:
+    st.error("ユーザー情報が取得できませんでした")
+    logout()
+    st.stop()
 
 # ページ設定
 st.set_page_config(

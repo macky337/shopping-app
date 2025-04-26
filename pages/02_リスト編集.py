@@ -365,6 +365,11 @@ if st.session_state.get('editing_item_id'):
                 step=1, 
                 value=edit_item.quantity if edit_item.quantity else 1
             )
+            # 日付編集を追加
+            edit_planned_date = st.date_input(
+                "予定日",
+                value=edit_item.planned_date if edit_item.planned_date else datetime.today().date()
+            )
             
             col3, col4 = st.columns(2)
             
@@ -375,7 +380,8 @@ if st.session_state.get('editing_item_id'):
                         item_id=edit_item.id,
                         quantity=edit_quantity,
                         planned_price=edit_planned_price if edit_planned_price > 0 else None,
-                        store_id=int(edit_store_id) if edit_store_id else None
+                        store_id=int(edit_store_id) if edit_store_id else None,
+                        planned_date=edit_planned_date
                     )
                     
                     if updated_item:
@@ -413,7 +419,7 @@ if st.session_state.get('show_batch_actions', False):
         st.info(f"選択されたアイテム数: {len(selected_ids)}個")
         
         # 一括操作の種類を選択
-        batch_action = st.radio("一括操作の種類", ["削除", "店舗変更"], horizontal=True)
+        batch_action = st.radio("一括操作の種類", ["削除", "店舗変更", "日付変更"], horizontal=True)
         
         if batch_action == "削除":
             if st.button("選択した商品を一括削除", type="primary"):
@@ -466,6 +472,26 @@ if st.session_state.get('show_batch_actions', False):
                 else:
                     show_error_message("アイテムの更新に失敗しました")
         
+        elif batch_action == "日付変更":
+            # 日付一括変更
+            batch_date = st.date_input("新しい予定日を選択")
+            if st.button("日付を一括変更", type="primary"):
+                success_count = 0
+                for item_id in selected_ids:
+                    updated = update_shopping_list_item(
+                        item_id=item_id,
+                        planned_date=batch_date
+                    )
+                    if updated:
+                        success_count += 1
+                if success_count > 0:
+                    show_success_message(f"{success_count}個のアイテムの予定日を変更しました")
+                    reset_item_selection()
+                    st.session_state['show_batch_actions'] = False
+                    st.rerun()
+                else:
+                    show_error_message("予定日の更新に失敗しました")
+        
         # 閉じるボタン
         if st.button("閉じる"):
             st.session_state['show_batch_actions'] = False
@@ -496,14 +522,16 @@ if items:
             "カテゴリ": category_name,
             "数量": item.quantity if item.quantity else 1,
             "予定金額": item.planned_price if item.planned_price else "-",
+            "予定日": item.planned_date if item.planned_date else "-",
             "購入価格": item.purchases[0].actual_price if item.purchases and len(item.purchases) > 0 else "-",
             "店舗": store_name,
             "購入済": "✓" if item.checked else "",
         })
     
-    # DataFrame作成
     df = pd.DataFrame(item_data)
-    
+    if "予定日" in df.columns:
+        df["予定日"] = pd.to_datetime(df["予定日"], errors="coerce").dt.date  # ここで日付型に変換
+
     # チェックボックス列を追加したデータエディタを表示
     edited_df = st.data_editor(
         df,
@@ -536,6 +564,10 @@ if items:
                 "予定金額",
                 disabled=True
             ),
+            "予定日": st.column_config.DateColumn(
+                "予定日",
+                disabled=False
+            ),
             "購入価格": st.column_config.Column(
                 "購入価格",
                 disabled=True
@@ -560,7 +592,7 @@ if items:
         if st.session_state['item_selection'].get(item_id) != is_selected:
             st.session_state['item_selection'][item_id] = is_selected
     
-    # 数量変更をデータベースに反映
+    # 数量変更と予定日変更をデータベースに反映
     for _, row in edited_df.iterrows():
         item_id = row["ID"]
         new_qty = row["数量"]
@@ -572,6 +604,16 @@ if items:
             )
             if updated:
                 show_success_message(f"{updated.item.name if updated.item else ''} の数量を{new_qty}に更新しました")
+        # 予定日変更反映
+        new_date = row.get("予定日")
+        old_date = next((item.planned_date for item in items if item.id == item_id), None)
+        if new_date != old_date:
+            updated = update_shopping_list_item(
+                item_id=item_id,
+                planned_date=new_date
+            )
+            if updated:
+                show_success_message(f"{updated.item.name if updated.item else ''} の予定日を{new_date}に更新しました")
     
     # アイテム操作用のボタン
     for item in items:

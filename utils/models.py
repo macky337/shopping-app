@@ -95,6 +95,7 @@ class ShoppingListItem(Base):
     checked = Column(Boolean, default=False)
     quantity = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    planned_date = Column(Date, default=None)
 
     # リレーションシップ
     shopping_list = relationship("ShoppingList", back_populates="shopping_list_items")

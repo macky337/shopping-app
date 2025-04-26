@@ -88,3 +88,16 @@ if __name__ == "__main__":
         print("移行が正常に完了しました。")
     else:
         print("移行中にエラーが発生しました。")
+
+import os
+import psycopg2
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "ここに接続URLを直接書いてもOK")
+
+conn = psycopg2.connect(DATABASE_URL)
+cur = conn.cursor()
+cur.execute("ALTER TABLE shopping_list_items ADD COLUMN IF NOT EXISTS planned_date DATE;")
+conn.commit()
+cur.close()
+conn.close()
+print("planned_dateカラムを追加しました")

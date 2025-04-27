@@ -418,6 +418,13 @@ st.subheader("現在のリスト")
 # リスト全体の合計金額表示
 list_totals = get_shopping_list_total(shopping_list.id)
 st.metric(label="リスト合計金額", value=f"¥{list_totals['total_price']:,.0f}", delta=f"{list_totals['total_items']}点")
+# ステータス凡例の色分け
+st.markdown("""
+**ステータス:**  
+<span style='background-color:#f8d7da;color:#721c24;padding:4px 8px;border-radius:4px;'>未購入</span>  
+<span style='background-color:#fff3cd;color:#856404;padding:4px 8px;border-radius:4px;'>チェック済み</span>  
+<span style='background-color:#d4edda;color:#155724;padding:4px 8px;border-radius:4px;'>購入済み</span>
+""", unsafe_allow_html=True)
 
 # 複数選択コントロールを追加
 col_refresh, col_batch = st.columns([3, 1])
@@ -668,39 +675,48 @@ if items:
     for item in items:
         item_name = item.item.name if item.item else "不明なアイテム"
         store_name = item.store.name if item.store else "未指定"
-        
-        with st.expander(f"{item_name} - {store_name}"):
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                if st.button("編集", key=f"edit_{item.id}", use_container_width=True):
-                    st.session_state['editing_item_id'] = item.id
-                    st.rerun()
-            
-            with col2:
-                if st.button("削除", key=f"delete_{item.id}", use_container_width=True):
-                    if remove_item_from_shopping_list(item.id):
-                        show_success_message(f"{item_name}をリストから削除しました")
+        # ステータスに応じた背景色
+        bgcolor = "#f8d7da"  # 未購入
+        if item.purchases:
+            bgcolor = "#d4edda"  # 購入済み
+        elif item.checked:
+            bgcolor = "#fff3cd"  # チェック済み
+        # カラフルな背景で表示
+        with st.container():
+            st.markdown(f"<div style='background-color:{bgcolor}; padding:8px; border-radius:5px;'>", unsafe_allow_html=True)
+            with st.expander(f"{item_name} - {store_name}"):
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    if st.button("編集", key=f"edit_{item.id}", use_container_width=True):
+                        st.session_state['editing_item_id'] = item.id
                         st.rerun()
-                    else:
-                        show_error_message("アイテムの削除に失敗しました")
-            
-            with col3:
-                # 「購入済み」トグルボタン表示
-                purchase_label = "購入取消" if item.checked else "購入済みにする"
-                if st.button(purchase_label, key=f"purchase_{item.id}", use_container_width=True):
-                    # 購入済みフラグを切り替え
-                    updated_item = update_shopping_list_item(
-                        item_id=item.id,
-                        checked=not item.checked
-                    )
-                    
-                    if updated_item:
-                        status = "購入済み" if not item.checked else "未購入"
-                        show_success_message(f"{item_name}を{status}に変更しました")
-                        st.rerun()
-                    else:
-                        show_error_message("アイテム状態の更新に失敗しました")
+                
+                with col2:
+                    if st.button("削除", key=f"delete_{item.id}", use_container_width=True):
+                        if remove_item_from_shopping_list(item.id):
+                            show_success_message(f"{item_name}をリストから削除しました")
+                            st.rerun()
+                        else:
+                            show_error_message("アイテムの削除に失敗しました")
+                
+                with col3:
+                    # 「購入済み」トグルボタン表示
+                    purchase_label = "購入取消" if item.checked else "購入済みにする"
+                    if st.button(purchase_label, key=f"purchase_{item.id}", use_container_width=True):
+                        # 購入済みフラグを切り替え
+                        updated_item = update_shopping_list_item(
+                            item_id=item.id,
+                            checked=not item.checked
+                        )
+                        
+                        if updated_item:
+                            status = "購入済み" if not item.checked else "未購入"
+                            show_success_message(f"{item_name}を{status}に変更しました")
+                            st.rerun()
+                        else:
+                            show_error_message("アイテム状態の更新に失敗しました")
+            st.markdown("</div>", unsafe_allow_html=True)
 else:
     st.info("リストにアイテムがありません。商品を追加してください。")
 

@@ -51,6 +51,13 @@ cols = st.columns(3)
 cols[0].metric("リスト合計金額", f"¥{list_totals['total_price']:,.0f}")
 cols[1].metric("チェック済み合計金額", f"¥{list_totals['checked_price']:,.0f}")
 cols[2].metric("購入済み合計金額", f"¥{purchase_total:,.0f}")
+# ステータス色分け凡例
+st.markdown("""
+**ステータス色分け:**  
+<span style='background-color:#f8d7da;padding:4px;border-radius:4px;'>未チェック</span>  
+<span style='background-color:#fff3cd;padding:4px;border-radius:4px;'>チェック済み</span>  
+<span style='background-color:#d4edda;padding:4px;border-radius:4px;'>購入済み</span>
+""", unsafe_allow_html=True)
 
 # メインコンテンツ - 店舗別タブを作成
 if list_items:

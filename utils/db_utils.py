@@ -590,6 +590,40 @@ def get_shopping_list_items(shopping_list_id: int, store_id: Optional[int] = Non
     except Exception as e:
         logger.error(f"買い物リストアイテム取得エラー: {e}")
         return []
+    finally:
+        if session != st.session_state.get('db_session'):
+            session.close()
+
+# 買い物リスト全体の合計金額とアイテム数を計算
+def get_shopping_list_total(shopping_list_id: int) -> dict:
+    """
+    買い物リストの合計金額と商品数を計算する
+
+    Args:
+        shopping_list_id (int): 買い物リストのID
+
+    Returns:
+        dict: {"total_price": 合計予定金額, "total_items": アイテム数, "checked_items": 購入済み数, "checked_price": 購入済み金額合計}
+    """
+    session = get_db_session()
+    try:
+        items = get_shopping_list_items(shopping_list_id)
+        total_price = sum((item.planned_price or 0) * item.quantity for item in items)
+        total_items = len(items)
+        checked_items = sum(1 for item in items if item.checked)
+        checked_price = sum((item.planned_price or 0) * item.quantity for item in items if item.checked)
+        return {
+            "total_price": total_price,
+            "total_items": total_items,
+            "checked_items": checked_items,
+            "checked_price": checked_price
+        }
+    except Exception as e:
+        logger.error(f"買い物リスト合計金額計算エラー: {e}")
+        return {"total_price": 0, "total_items": 0, "checked_items": 0, "checked_price": 0}
+    finally:
+        if session != st.session_state.get('db_session'):
+            session.close()
 
 def update_shopping_list_item(
     item_id: int,

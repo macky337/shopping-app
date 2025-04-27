@@ -6,7 +6,7 @@ from utils.ui_utils import check_authentication, show_connection_indicator
 from utils.db_utils import get_shopping_list, get_shopping_list_items, add_item_to_shopping_list
 from utils.db_utils import update_shopping_list_item, get_stores, get_categories
 from utils.db_utils import create_item, search_items, get_items_by_user, update_shopping_list
-from utils.db_utils import remove_item_from_shopping_list, delete_shopping_list_items
+from utils.db_utils import remove_item_from_shopping_list, delete_shopping_list_items, get_shopping_list_total
 from utils.ui_utils import patch_dark_background
 
 # アイコンマッピング
@@ -408,9 +408,16 @@ if st.session_state.get('editing_item_id'):
                 if st.form_submit_button("キャンセル"):
                     st.session_state['editing_item_id'] = None
                     st.rerun()
+            
+            # 合計金額の表示
+            total_price = edit_quantity * edit_planned_price
+            st.metric(label="合計金額", value=f"¥{total_price:,.0f}")
 
 # 買い物リストの表示
 st.subheader("現在のリスト")
+# リスト全体の合計金額表示
+list_totals = get_shopping_list_total(shopping_list.id)
+st.metric(label="リスト合計金額", value=f"¥{list_totals['total_price']:,.0f}", delta=f"{list_totals['total_items']}点")
 
 # 複数選択コントロールを追加
 col_refresh, col_batch = st.columns([3, 1])

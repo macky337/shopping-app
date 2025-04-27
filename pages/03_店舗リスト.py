@@ -1,7 +1,7 @@
 import streamlit as st
 from utils.ui_utils import show_header, show_success_message, show_error_message, show_hamburger_menu, show_bottom_nav
 from utils.ui_utils import check_authentication, show_connection_indicator, patch_dark_background
-from utils.db_utils import get_shopping_list, get_shopping_list_items, update_shopping_list_item
+from utils.db_utils import get_shopping_list, get_shopping_list_items, update_shopping_list_item, get_shopping_list_total
 from utils.db_utils import get_stores, record_purchase
 
 # 認証チェック
@@ -42,6 +42,15 @@ show_header(f"{shopping_list.name} - 買い物モード")
 
 # 折りたたみ式メニュー
 show_hamburger_menu()
+
+# 合計金額表示
+list_totals = get_shopping_list_total(shopping_list.id)
+# 購入済み金額計算
+purchase_total = sum(p.actual_price * p.quantity for item in list_items for p in item.purchases)
+cols = st.columns(3)
+cols[0].metric("リスト合計金額", f"¥{list_totals['total_price']:,.0f}")
+cols[1].metric("チェック済み合計金額", f"¥{list_totals['checked_price']:,.0f}")
+cols[2].metric("購入済み合計金額", f"¥{purchase_total:,.0f}")
 
 # メインコンテンツ - 店舗別タブを作成
 if list_items:

@@ -1,8 +1,13 @@
 import streamlit as st
 from utils.ui_utils import show_header, show_success_message, show_error_message, show_hamburger_menu, show_bottom_nav
 from utils.ui_utils import check_authentication, show_connection_indicator, patch_dark_background
-from utils.db_utils import get_shopping_list, get_shopping_list_items, update_shopping_list_item, get_shopping_list_total
-from utils.db_utils import get_stores, record_purchase
+from utils.db_utils import get_shopping_list, get_shopping_list_items, update_shopping_list_item, get_shopping_list_total, close_db_session, record_purchase, get_latest_planned_price
+
+# 新規: チェックボックス変更ハンドラ
+def handle_check(item_id):
+    # DB更新とセッションリセット
+    update_shopping_list_item(item_id, checked=st.session_state[f"check_{item_id}"])
+    close_db_session()
 
 # 認証チェック
 if not check_authentication():
@@ -115,77 +120,85 @@ if list_items:
             for category_name, category_items in categories.items():
                 with st.expander(f"{category_name} ({len(category_items)}アイテム)", expanded=True):
                     for item in category_items:
-                        col1, col2, col3, col4 = st.columns([0.5, 2, 1, 1])
-                        
-                        with col1:
-                            # チェックボックス
-                            checked = st.checkbox("", value=item.checked, key=f"check_{item.id}")
-                            if checked != item.checked:
-                                update_shopping_list_item(item.id, checked=checked)
-                                st.rerun()
-                        
-                        with col2:
-                            # 商品名と数量
+                        # ステータスに応じた背景色
+                        bgcolor = "#f8d7da"  # 未チェック
+                        if item.purchases:
+                            bgcolor = "#d4edda"  # 購入済み
+                        elif item.checked:
+                            bgcolor = "#fff3cd"  # チェック済み
+                        # カラフルな背景でアイテム表示
+                        st.markdown(f"<div style='background-color:{bgcolor}; padding:8px; border-radius:5px; margin-bottom:8px;'>", unsafe_allow_html=True)
+                        cols = st.columns([0.5, 2, 1, 1])
+                        with cols[0]:
+                            # チェックボックス（on_changeでDB更新）
+                            st.checkbox(
+                                "",
+                                value=item.checked,
+                                key=f"check_{item.id}",
+                                on_change=handle_check,
+                                args=(item.id,)
+                            )
+                        with cols[1]:
                             item_name = item.item.name if item.item else "不明なアイテム"
                             st.write(f"{item_name} (×{item.quantity})")
-                        
-                        with col3:
-                            # 予定金額
-                            planned_price = item.planned_price if item.planned_price is not None else 0
-                            st.write(f"¥{planned_price * (item.quantity if item.quantity is not None else 0):,.0f}")
-                        
-                        with col4:
-                            # 購入処理ボタン
+                        with cols[2]:
+                            # 予定金額フォールバック: リスト上の値(>0) → 商品デフォルト価格(>0) → 過去リストの直近予定価格
+                            if item.planned_price is not None and item.planned_price > 0:
+                                planned_price = item.planned_price
+                            elif item.item and getattr(item.item, 'default_price', None) is not None and item.item.default_price > 0:
+                                planned_price = item.item.default_price
+                            else:
+                                user_id = st.session_state.get('user_id')
+                                planned_price = get_latest_planned_price(user_id, item.item.id) if item.item else 0
+                            st.write(f"¥{planned_price * (item.quantity or 0):,.0f}")
+                        with cols[3]:
                             if st.button("購入記録", key=f"buy_{item.id}"):
                                 st.session_state[f"record_purchase_{item.id}"] = True
                                 st.rerun()
-                            
-                            # 購入記録モーダル
-                            if st.session_state.get(f"record_purchase_{item.id}"):
-                                with st.popover("購入金額を記録"):
+                        st.markdown("</div>", unsafe_allow_html=True)
+                        # 続き: div 内での購入記録モーダルなど
+                        if st.session_state.get(f"record_purchase_{item.id}"):
+                            with st.container():
+                                with st.form(key=f"purchase_form_{item.id}"):
+                                    st.subheader("購入金額を記録")
+                                    # デフォルト購入金額: リスト上の予定価格 or 商品デフォルト価格 or 直近予定価格
+                                    if item.planned_price and item.planned_price > 0:
+                                        default_price = item.planned_price
+                                    elif item.item and getattr(item.item, 'default_price', None) and item.item.default_price > 0:
+                                        default_price = item.item.default_price
+                                    else:
+                                        user_id = st.session_state.get('user_id')
+                                        default_price = get_latest_planned_price(user_id, item.item.id) if item.item else 0
+                                    # Decimal to float
                                     actual_price = st.number_input(
-                                        "実際の金額", 
-                                        value=float(item.planned_price) if item.planned_price is not None else 0,
-                                        step=1.0,
-                                        key=f"price_{item.id}"
+                                        "実際の金額", min_value=0.0, step=10.0,
+                                        value=float(default_price),
+                                        key=f"actual_{item.id}"
                                     )
-                                    
-                                    quantity = st.number_input(
-                                        "数量",
-                                        value=item.quantity if item.quantity is not None else 1,
-                                        min_value=1,
-                                        step=1,
+                                    quantity_input = st.number_input(
+                                        "数量", min_value=1, step=1,
+                                        value=item.quantity or 1,
                                         key=f"qty_{item.id}"
                                     )
-                                    
-                                    col_a, col_b = st.columns(2)
-                                    
-                                    with col_a:
-                                        if st.button("キャンセル", key=f"cancel_{item.id}"):
+                                    if st.form_submit_button("記録する"):
+                                        purchase = record_purchase(
+                                            shopping_list_item_id=item.id,
+                                            actual_price=actual_price,
+                                            quantity=quantity_input
+                                        )
+                                        if purchase:
+                                            show_success_message("購入記録を保存しました")
                                             del st.session_state[f"record_purchase_{item.id}"]
                                             st.rerun()
-                                            
-                                    with col_b:
-                                        if st.button("記録する", key=f"save_{item.id}"):
-                                            purchase = record_purchase(
-                                                shopping_list_item_id=item.id,
-                                                actual_price=actual_price,
-                                                quantity=quantity
-                                            )
-                                            
-                                            if purchase:
-                                                show_success_message("購入記録を保存しました")
-                                                del st.session_state[f"record_purchase_{item.id}"]
-                                                st.rerun()
-                                            else:
-                                                show_error_message("購入記録の保存に失敗しました")
-                        
-                        st.divider()
+                                        else:
+                                            show_error_message("購入記録の保存に失敗しました")
+                                # キャンセルボタン（フォーム外）
+                                if st.button("キャンセル", key=f"cancel_{item.id}"):
+                                    del st.session_state[f"record_purchase_{item.id}"]
+                                    st.rerun()
+                            st.divider()
 else:
     st.info("このリストには商品が登録されていません。リスト編集画面から商品を追加してください。")
 
 # ページ下部にタブバーを追加
 show_bottom_nav()
-
-# 店舗名入力フィールド
-st.text_input("店舗名", placeholder="店舗名を入力してください", label_visibility="visible")

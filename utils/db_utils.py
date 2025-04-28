@@ -634,7 +634,8 @@ def update_shopping_list_item(
     planned_date: Optional[datetime.date] = None
 ) -> Optional[ShoppingListItem]:
     """買い物リストアイテムを更新（チェック状態、数量、店舗、価格、予定日）"""
-    session = get_db_session()
+    # 新規セッションを使用
+    session = SessionLocal()
     try:
         list_item = session.query(ShoppingListItem).filter(ShoppingListItem.id == item_id).first()
         if not list_item:
@@ -658,6 +659,8 @@ def update_shopping_list_item(
         logger.error(f"買い物リストアイテム更新エラー: {e}")
         session.rollback()
         return None
+    finally:
+        session.close()
 
 def delete_shopping_list_item(item_id: int) -> bool:
     """買い物リストからアイテムを削除"""

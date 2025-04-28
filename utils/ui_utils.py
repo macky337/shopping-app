@@ -287,14 +287,25 @@ def show_shopping_list_summary(shopping_list):
     if total_items > 0:
         progress_pct = checked_items / total_items
     st.caption(f"📊 予算: ¥{total_price:,.0f}")
-    st.caption(f"✓ {checked_items}/{total_items} アイテム購入済")
-    # --- 緑色カスタム進捗バー ---
+    # チェック済みアイテム数
+    st.caption(f"✓ {checked_items}/{total_items} チェック済み")
+    # 購入済みアイテム数
+    purchased_items = sum(1 for item in items if item.purchases and len(item.purchases) > 0)
+    st.caption(f"🛒 {purchased_items}/{total_items} 購入済み")
+    # --- カラフルプログレスバー ---
     bar_width = int(progress_pct * 100)
+    # プログレスに応じたカラー: 0%=未チェック(赤), 1％未満=チェック済み(黄), 100%=購入済み(緑)
+    if progress_pct == 0:
+        bar_color = "#f8d7da"
+    elif progress_pct >= 1:
+        bar_color = "#d4edda"
+    else:
+        bar_color = "#fff3cd"
     bar_html = f'''
     <div style="background:#e0e0e0;border-radius:8px;width:100%;height:18px;overflow:hidden;margin-bottom:4px;">
-      <div style="background:#20d96b;height:100%;width:{bar_width}%;transition:width 0.3s;border-radius:8px;"></div>
+      <div style="background:{bar_color};height:100%;width:{bar_width}%;transition:width 0.3s;border-radius:8px;"></div>
     </div>
-    <div style="font-size:12px;color:#20d96b;font-weight:bold;text-align:right;">{int(progress_pct*100)}%</div>
+    <div style="font-size:12px;color:{bar_color};font-weight:bold;text-align:right;">{int(progress_pct*100)}%</div>
     '''
     st.markdown(bar_html, unsafe_allow_html=True)
 
@@ -494,22 +505,22 @@ def patch_dark_background(bg: str = "#0e1117") -> None:
 
     /* 2) stSpacer を「背景＝透明」＋「高さ＝0」で潰す ---------- */
     [data-testid="stSpacer"] {{
-        background: transparent !important;
-        height: 0 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        display: none !important;   /* ← 決定打 */
+        background: transparent !重要;
+        height: 0 !重要;
+        padding: 0 !重要;
+        margin: 0 !重要;
+        display: none !重要;   /* ← 決定打 */
     }}
 
     /* 3) ページ全体も保険で同色に ----------------------------- */
     html, body, .stApp {{
-        background: {bg} !important;
+        background: {bg} !重要;
     }}
 
     /* 4) main ブロックを画面高まで伸ばす --------------------- */
     [data-testid="stAppViewContainer"] > .main {{
         min-height: 100vh;
-        padding-bottom: 0 !important;   /* 余白カット */
+        padding-bottom: 0 !重要;
     }}
     </style>
     """, unsafe_allow_html=True)

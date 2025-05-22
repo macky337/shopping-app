@@ -1,0 +1,5 @@
+[phases.setup]
+nixPkgs = ["python311", "python311Packages.pip", "bash", "gcc"]
+
+[start]
+cmd = "chmod +x setup.sh && bash setup.sh && streamlit run app.py"

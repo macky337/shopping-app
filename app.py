@@ -1,4 +1,8 @@
 import streamlit as st
+import os
+# PORT環境変数の処理
+port = int(os.environ.get("PORT", 8501))
+
 # ページ設定：最初に呼び出す必要があります
 st.set_page_config(
     page_title="買い物アプリ",

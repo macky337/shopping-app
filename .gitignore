@@ -109,8 +109,9 @@ venv.bak/
 # PyCharm settings
 .idea/
 
-# Streamlit
-.streamlit/
+# Streamlit: 全ファイルを無視しつつ設定ファイルのみ追跡
+.streamlit/*
+!/.streamlit/config.toml
 
 # Local configuration
 config.local.toml

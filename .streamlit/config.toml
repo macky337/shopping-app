@@ -1,0 +1,17 @@
+[theme]
+base = "dark"
+primaryColor = "#F63366"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#0e1117"
+textColor = "#FFFFFF"
+font = "sans serif"
+
+[server]
+# 本番は setup.sh による ~/.streamlit/config.toml で上書きされます
+# プロジェクト直下の設定ではサーバー設定を行わず、テーマのみ維持します
+
+[browser]
+gatherUsageStats = false
+
+[logger]
+level = "info"

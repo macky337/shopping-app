@@ -1,7 +1,17 @@
 import streamlit as st
 import os
-# PORT環境変数の処理
-port = int(os.environ.get("PORT", 8501))
+import socket
+
+def find_free_port(default_port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if s.connect_ex(('localhost', default_port)) != 0:
+            return default_port
+        for port in range(default_port+1, default_port+100):
+            if s.connect_ex(('localhost', port)) != 0:
+                return port
+    return default_port
+
+port = find_free_port(int(os.environ.get("PORT", 8501)))
 
 # ページ設定：最初に呼び出す必要があります
 st.set_page_config(
@@ -21,6 +31,15 @@ if str(project_root) not in sys.path:
 from utils.ui_utils import init_session_state, show_login_screen
 import datetime
 import os
+
+# 注意:
+# Streamlitを「streamlit run app.py」で起動した場合、このファイル内でポートを自動選択しても反映されません。
+# ポート競合を避けるには、コマンドラインで「streamlit run app.py --server.port 8505」などと指定してください。
+# もしくは「python app.py」で起動すると自動ポート選択が有効になります。
+
+# 注意:
+# Streamlitの起動ログに「URL: http://0.0.0.0:8501」と表示されても、
+# ブラウザでは「http://localhost:8501」または「http://127.0.0.1:8501」でアクセスしてください。
 
 if st.sidebar.button("全セッションをクリア"):
     st.session_state.clear()

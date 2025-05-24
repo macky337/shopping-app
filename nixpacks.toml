@@ -1,5 +1,8 @@
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip", "bash", "gcc"]
+skip = true
 
-[start]
-cmd = "chmod +x setup.sh && bash setup.sh && streamlit run app.py"
+[phases.install]
+command = "pip install --no-cache-dir -r requirements.txt"
+
+[phases.start]
+command = "bash setup.sh && streamlit run app.py"

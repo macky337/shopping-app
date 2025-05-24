@@ -21,5 +21,5 @@ RUN chmod +x setup.sh
 # ポートを公開
 EXPOSE 8501
 
-# デフォイ後の起動コマンド
-CMD ["bash", "setup.sh"]
+# デプロイ後の起動コマンド：設定生成後に Streamlit を起動
+CMD ["bash", "-c", "bash setup.sh && streamlit run app.py --server.port ${PORT:-8501}"]

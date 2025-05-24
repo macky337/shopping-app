@@ -1,5 +1,6 @@
+# Setup Python environment via Nixpkgs
 [phases.setup]
-skip = true
+nixPkgs = ["python311", "python311Packages.pip", "bash"]
 
 [phases.install]
 command = "pip install --no-cache-dir -r requirements.txt"

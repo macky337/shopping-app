@@ -6,6 +6,7 @@ echo "[server]
 headless = true
 enableCORS = false
 enableXsrfProtection = false
+address = \"0.0.0.0\"
 " > ~/.streamlit/config.toml
 
 # Add port configuration separately to ensure proper expansion of PORT variable

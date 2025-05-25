@@ -18,5 +18,5 @@ COPY . .
 # ポートを公開
 EXPOSE 8501
 
-# コンテナ起動時に Streamlit を起動（IPv6/IPv4両方でバインド）
-CMD ["bash", "-lc", "streamlit run app.py --server.port $PORT --server.address ::"]
+# シンプルに Shell フォームで Streamlit を起動
+CMD streamlit run app.py --server.port $PORT --server.address 0.0.0.0

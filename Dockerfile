@@ -20,8 +20,7 @@ RUN mkdir -p /root/.streamlit && cp .streamlit/config.toml /root/.streamlit/conf
 
 # デフォルトポート設定
 ENV PORT=8501
-# ポートを公開
+# ポート公開
 EXPOSE 8501
-
-# コンテナ起動時に Streamlit を起動（JSON 形式でシグナルハンドリング対応）
-CMD ["bash", "-lc", "streamlit run app.py --server.address=0.0.0.0 --server.port $PORT --server.headless true --server.enableCORS false --server.enableXsrfProtection false"]
+# ENTRYPOINT: 簡易シェルで Streamlit を起動
+ENTRYPOINT ["sh", "-c", "streamlit run app.py --server.address=0.0.0.0 --server.port ${PORT}" ]

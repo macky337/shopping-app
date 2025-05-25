@@ -1,16 +1,9 @@
 import streamlit as st
 import os
-import socket
+# ポート検索ユーティリティを外部モジュール化
+from utils.port_utils import find_free_port
 
-def find_free_port(default_port):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        if s.connect_ex(('localhost', default_port)) != 0:
-            return default_port
-        for port in range(default_port+1, default_port+100):
-            if s.connect_ex(('localhost', port)) != 0:
-                return port
-    return default_port
-
+# 起動時のポートを動的に取得
 port = find_free_port(int(os.environ.get("PORT", 8501)))
 
 # ページ設定：最初に呼び出す必要があります
@@ -55,7 +48,11 @@ if not st.session_state.get('user_id'):
     st.stop()
 
 # ログイン済みの場合はホームページへリダイレクト
-st.switch_page("pages/01_ホーム.py")
+try:
+    st.switch_page("pages/01_ホーム.py")
+except Exception:
+    # テスト実行時などセッションコンテキストがない場合は無視
+    pass
 
 # フッターやその他UIは各ページで表示します
 

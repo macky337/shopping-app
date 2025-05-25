@@ -18,14 +18,10 @@ COPY . .
 # プロジェクトの .streamlit/config.toml をコンテナ内ユーザー設定へコピー
 RUN mkdir -p /root/.streamlit && cp .streamlit/config.toml /root/.streamlit/config.toml
 
+# デフォルトポート設定
+ENV PORT=8501
 # ポートを公開
 EXPOSE 8501
 
-ENV PORT=${PORT:-8501}
-# コンテナ起動時に Streamlit を IPv6 ワイルドカードリスンで起動
-CMD streamlit run app.py \
-  --server.address "[::]" \
-  --server.port $PORT \
-  --server.headless true \
-  --server.enableCORS false \
-  --server.enableXsrfProtection false
+# コンテナ起動時に Streamlit を起動（JSON 形式でシグナルハンドリング対応）
+CMD ["bash", "-lc", "streamlit run app.py --server.address=0.0.0.0 --server.port $PORT --server.headless true --server.enableCORS false --server.enableXsrfProtection false"]

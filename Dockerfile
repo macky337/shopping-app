@@ -15,11 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # アプリケーションコードをコピー
 COPY . .
 
-# setup.sh を実行可能に
-RUN chmod +x setup.sh
-
 # ポートを公開
 EXPOSE 8501
 
-# デプロイ後の起動コマンド：Streamlit を外部アクセス（0.0.0.0）で起動
-CMD ["bash", "-c", "bash setup.sh && exec streamlit run app.py"]
+# コンテナ起動時に Streamlit を起動（IPv6/IPv4両方でバインド）
+CMD ["bash", "-lc", "streamlit run app.py --server.port $PORT --server.address ::"]

@@ -15,8 +15,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # アプリケーションコードをコピー
 COPY . .
 
+# プロジェクトの .streamlit/config.toml をコンテナ内ユーザー設定へコピー
+RUN mkdir -p /root/.streamlit && cp .streamlit/config.toml /root/.streamlit/config.toml
+
 # ポートを公開
 EXPOSE 8501
 
-# シンプルに Shell フォームで Streamlit を起動
-CMD streamlit run app.py --server.port $PORT --server.address 0.0.0.0
+ENV PORT=${PORT:-8501}
+# コンテナ起動時に Streamlit を IPv6 ワイルドカードリスンで起動
+CMD streamlit run app.py \
+  --server.address "[::]" \
+  --server.port $PORT \
+  --server.headless true \
+  --server.enableCORS false \
+  --server.enableXsrfProtection false

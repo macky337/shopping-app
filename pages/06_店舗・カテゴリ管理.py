@@ -81,10 +81,11 @@ with tab1:
             if not store_name:
                 show_error_message("店舗名を入力してください")
             else:
+                # 店舗作成: キーワード引数の名前を create_store の定義に合わせて修正
                 new_store = create_store(
+                    user_id=st.session_state.get('user_id'),
                     name=store_name,
-                    category=store_category,
-                    user_id=st.session_state.get('user_id')
+                    category=store_category
                 )
                 
                 if new_store:

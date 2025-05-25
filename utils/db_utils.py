@@ -294,15 +294,14 @@ def get_stores(user_id: Optional[int] = None) -> List[Store]:
         logger.error(f"店舗一覧取得エラー: {e}")
         return []
 
-def create_store(user_id, name, address=None, store_type=None, check_duplicate=True):
+def create_store(user_id, name, category=None, check_duplicate=True):
     """
     新しい店舗を作成する
     
     Args:
         user_id (int): ユーザーID
         name (str): 店舗名
-        address (str, optional): 住所
-        store_type (str, optional): 店舗種別
+        category (str, optional): カテゴリ
         check_duplicate (bool): 重複チェックを行うかどうか
         
     Returns:
@@ -326,8 +325,7 @@ def create_store(user_id, name, address=None, store_type=None, check_duplicate=T
         store = Store(
             user_id=user_id,
             name=name,
-            address=address,
-            type=store_type
+            category=category
         )
         session.add(store)
         session.commit()

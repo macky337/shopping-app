@@ -19,8 +19,8 @@ COPY . .
 RUN mkdir -p /root/.streamlit && cp .streamlit/config.toml /root/.streamlit/config.toml
 
 # デフォルトポート設定
-ENV PORT=8501
+ENV PORT=8080
 # ポート公開
-EXPOSE 8501
+EXPOSE 8080
 # ENTRYPOINT: 簡易シェルで Streamlit を起動
 ENTRYPOINT ["sh", "-c", "streamlit run app.py --server.address=0.0.0.0 --server.port ${PORT}" ]

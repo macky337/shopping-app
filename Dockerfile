@@ -18,9 +18,8 @@ COPY . .
 # プロジェクトの .streamlit/config.toml をコンテナ内ユーザー設定へコピー
 RUN mkdir -p /root/.streamlit && cp .streamlit/config.toml /root/.streamlit/config.toml
 
-# デフォルトポート設定
-ENV PORT=8080
-# ポート公開
-EXPOSE 8080
-# ENTRYPOINT: 簡易シェルで Streamlit を起動
-ENTRYPOINT ["sh", "-c", "streamlit run app.py --server.address=0.0.0.0 --server.port ${PORT}" ]
+# [変更] Railways のアップストリームは常に 8501 へフォワードするため、固定ポート 8501 でリスン
+ENV PORT=8501
+EXPOSE 8501
+# ENTRYPOINT: 0.0.0.0:8501 で常に起動
+ENTRYPOINT ["sh", "-c", "streamlit run app.py --server.address=0.0.0.0 --server.port 8501"]
